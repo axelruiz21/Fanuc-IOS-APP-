@@ -29,7 +29,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-linear-gradient"],
     "extra": {
       "eas": {
         "projectId": "fanuc-ios-mvp"
