@@ -24,7 +24,7 @@
     "expo-status-bar": "^1.11.0",
     "zustand": "^4.4.7",
     "immer": "^10.0.3",
-    "three": "^r160",
+    "three": "^0.160.0",
     "@react-three/fiber": "^8.15.0",
     "@react-three/drei": "^9.102.0",
     "@react-three/postprocessing": "^2.15.0"
