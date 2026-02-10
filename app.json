@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "FANUC Teach Pendant MVP",
+    "slug": "fanuc-ios-mvp",
+    "version": "0.1.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "fanucmvp",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a1a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTabletMode": true,
+      "supportsPortrait": false,
+      "supportsLandscape": true,
+      "orientationLock": "landscape"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a1a"
+      },
+      "screenOrientation": "landscape"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": ["expo-linear-gradient"],
+    "extra": {
+      "eas": {
+        "projectId": "fanuc-ios-mvp"
+      }
+    }
+  }
+}
