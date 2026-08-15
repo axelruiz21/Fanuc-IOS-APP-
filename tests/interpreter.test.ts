@@ -1,5 +1,6 @@
 // tests/interpreter.test.ts
 import { FANUCInterpreter } from '../app/utils/interpreter';
+import { A3, D3, forward } from '../app/kinematics';
 
 describe('FANUCInterpreter smoke', () => {
   it('executes MOVE P[1] to a taught position', async () => {
@@ -47,15 +48,15 @@ describe('run loop', () => {
 
   it('continue after breakpoint does not restart from line 0', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 2, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
     vm.addBreakPoint(1); // 0-based: MOVE P[2]
     const first = await vm.execute('MOVE P[1]\nMOVE P[2]\nEND');
     expect(first.state.isPaused).toBe(true);
-    expect(first.state.currentPosition?.x).toBe(100);
+    expect(first.state.currentPosition?.x).toBe(1);
     const resumed = await vm.continue();
     expect(resumed.success).toBe(true);
-    expect(resumed.state.currentPosition?.x).toBe(150);
+    expect(resumed.state.currentPosition?.x).toBe(2);
     expect(resumed.executionLog.some((l) => l.includes('MOVE P[1]'))).toBe(true);
   });
 });
@@ -227,6 +228,39 @@ describe('MOVE inverse kinematics', () => {
     const second = await vm.execute('MOVE P[2]\nEND');
     expect(second.success).toBe(false);
     expect(second.error).toMatch(/unreachable/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
+  });
+
+  it('fails singular MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    const singular = forward([0, 1.2, Math.atan2(A3, D3), 0, 0, 0]);
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, singular);
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/singular/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
+  });
+
+  it('fails joint_limit MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, { x: 80, y: 0, z: 330, rx: 0, ry: 0, rz: 180 });
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/joint_limit/);
     expect(second.state.currentPosition).toEqual(posAfterFirst);
     expect(second.state.currentJoints).toEqual(jointsAfterFirst);
   });

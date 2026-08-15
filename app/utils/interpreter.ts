@@ -675,7 +675,8 @@ export class FANUCInterpreter {
   }
 
   /**
-   * Solve IK and jump to the target. Throws `MOVE <reason>` on failure.
+   * Solve IK and jump to the target. Throws the IK reason; callers prefix
+   * the command name (`MOVE: unreachable`, `J: joint_limit`, ...).
    */
   private applyIkMove(position: Position, lineNumber: number, logPrefix: string): void {
     if (!this.context) throw new Error('No execution context');

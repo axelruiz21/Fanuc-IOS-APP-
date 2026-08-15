@@ -7,7 +7,6 @@ import {
   D3,
   D6,
   WRIST_SINGULAR_RAD,
-  withinLimits,
   type CartesianPose,
   type Joints,
 } from './lrmate200id';
@@ -81,6 +80,28 @@ function asJoints(q: number[]): Joints {
   return [q[0], q[1], q[2], q[3], q[4], q[5]];
 }
 
+function shiftIntoLimits(q: Joints): Joints | null {
+  const twoPi = Math.PI * 2;
+  const fitted: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const { min, max } = CHAIN[i];
+    let best: number | null = null;
+    let bestShift = Infinity;
+    for (let k = -2; k <= 2; k++) {
+      const candidate = q[i] + k * twoPi;
+      if (candidate >= min && candidate <= max && Math.abs(k) < bestShift) {
+        best = candidate;
+        bestShift = Math.abs(k);
+      }
+    }
+    if (best === null) {
+      return null;
+    }
+    fitted.push(best);
+  }
+  return asJoints(fitted);
+}
+
 function seedDistance(q: Joints, seed: Joints): number {
   let sum = 0;
   for (let i = 0; i < 6; i++) {
@@ -146,9 +167,9 @@ export function inverse(target: CartesianPose, seed: Joints): IkResult {
 
   const amp = Math.hypot(D3, A3);
   const psi = Math.atan2(A3, D3);
-  const candidates: Joints[] = [];
   let hadGeometric = false;
-  let hadNonSingular = false;
+  let hadDegenerateWrist = false;
+  const inLimit: Joints[] = [];
 
   for (const q1 of q1Options) {
     const c1 = Math.cos(q1);
@@ -178,30 +199,27 @@ export function inverse(target: CartesianPose, seed: Joints): IkResult {
       const wrists = wristJoints(Rw);
       if (wrists.length === 0) {
         hadGeometric = true;
+        hadDegenerateWrist = true;
         continue;
       }
       for (const [q4, q5, q6] of wrists) {
         hadGeometric = true;
-        if (Math.abs(q5) < WRIST_SINGULAR_RAD) {
-          continue;
+        const fitted = shiftIntoLimits(asJoints([q1, q2, q3, q4, q5, q6]));
+        if (fitted) {
+          inLimit.push(fitted);
         }
-        hadNonSingular = true;
-        const q = asJoints([q1, q2, q3, q4, q5, q6]);
-        if (!withinLimits(q)) {
-          continue;
-        }
-        candidates.push(q);
       }
     }
   }
 
-  if (candidates.length > 0) {
-    let best = candidates[0];
+  const usable = inLimit.filter((q) => Math.abs(q[4]) >= WRIST_SINGULAR_RAD);
+  if (usable.length > 0) {
+    let best = usable[0];
     let bestDist = seedDistance(best, seed);
-    for (let i = 1; i < candidates.length; i++) {
-      const dist = seedDistance(candidates[i], seed);
+    for (let i = 1; i < usable.length; i++) {
+      const dist = seedDistance(usable[i], seed);
       if (dist < bestDist) {
-        best = candidates[i];
+        best = usable[i];
         bestDist = dist;
       }
     }
@@ -210,7 +228,7 @@ export function inverse(target: CartesianPose, seed: Joints): IkResult {
   if (!hadGeometric) {
     return { ok: false, reason: 'unreachable' };
   }
-  if (!hadNonSingular) {
+  if (inLimit.length > 0 || hadDegenerateWrist) {
     return { ok: false, reason: 'singular' };
   }
   return { ok: false, reason: 'joint_limit' };

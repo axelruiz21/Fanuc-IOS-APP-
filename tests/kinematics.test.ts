@@ -1,4 +1,6 @@
 import {
+  A3,
+  D3,
   forward,
   HOME_JOINTS,
   inverse,
@@ -42,6 +44,7 @@ describe('inverse kinematics', () => {
     [-0.5, 0.7, 1.0, -0.4, 1.1, 0.6],
     [0.8, -0.3, 0.5, 1.2, -0.9, -1.5],
     [1.2, 1.0, 2.0, 0.3, 0.6, 2.0],
+    [0.1, 0.5, 3.3, 0.2, 0.9, 0.1],
   ];
 
   it.each(samples.map((q) => [q]))('round-trips joints %j', (q: Joints) => {
@@ -81,16 +84,27 @@ describe('inverse kinematics', () => {
     expect(result.reason).toBe('unreachable');
   });
 
-  it('treats a wrist-singular pose as singular or a non-singular alternate', () => {
-    // q5 = 0 aligns J4/J6. Inverse must not return |J5| < 1e-3.
+  it('treats a wrist-singular pose as singular', () => {
+    // Unique-elbow (q3 = atan2(a3, d3)) with J5 = 0: no non-singular alternate.
+    const q: Joints = [0, 1.2, Math.atan2(A3, D3), 0, 0, 0];
+    const pose = forward(q);
+    const result = inverse(pose, HOME_JOINTS);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.reason).toBe('singular');
+  });
+
+  it('does not return a wrist-singular configuration on success', () => {
     const pose = forward([0, 0.4, 0.2, 0.3, 0, 0.5]);
     const result = inverse(pose, HOME_JOINTS);
-    if (result.ok) {
-      expect(Math.abs(result.joints[4])).toBeGreaterThanOrEqual(1e-3);
-      expect(tipErrorMm(forward(result.joints), pose)).toBeLessThan(1);
-    } else {
-      expect(result.reason).toBe('singular');
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
     }
+    expect(Math.abs(result.joints[4])).toBeGreaterThanOrEqual(1e-3);
+    expect(tipErrorMm(forward(result.joints), pose)).toBeLessThan(1);
   });
 
   it('reaches the lesson P[1]/P[2] seeds from home', () => {
@@ -101,7 +115,8 @@ describe('inverse kinematics', () => {
   });
 
   it('reports joint_limit when the wrist is in reach but no solution fits limits', () => {
-    const result = inverse({ x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 }, HOME_JOINTS);
+    // Flange at the J2 origin with rz=180: geometrically in the annulus, no in-limit wrist.
+    const result = inverse({ x: 80, y: 0, z: 330, rx: 0, ry: 0, rz: 180 }, HOME_JOINTS);
     expect(result.ok).toBe(false);
     if (result.ok) {
       return;
