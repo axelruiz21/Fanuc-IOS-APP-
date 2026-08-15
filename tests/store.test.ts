@@ -11,7 +11,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 import { useAppStore } from '../app/store';
-import { saveState, loadState } from '../app/store/persistence';
+import { saveState, loadState, applyPersistedState } from '../app/store/persistence';
 
 describe('useAppStore', () => {
   beforeEach(() => {
@@ -55,5 +55,22 @@ describe('persistence', () => {
     await saveState();
     const loaded = await loadState();
     expect(loaded?.program).toContain('MOVE P[1]');
+  });
+
+  it('does not let origin P[n] in storage wipe seeded P[10]', async () => {
+    useAppStore.getState().reset();
+    expect(useAppStore.getState().interpreterState.positions[10].x).toBe(2000);
+
+    applyPersistedState({
+      program: 'MOVE P[10]\nEND',
+      positions: {
+        1: { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 },
+        10: { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 },
+      },
+      breakpointLines: [],
+    });
+
+    expect(useAppStore.getState().interpreterState.positions[10].x).toBe(2000);
+    expect(useAppStore.getState().program).toContain('MOVE P[10]');
   });
 });

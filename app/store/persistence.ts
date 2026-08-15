@@ -8,8 +8,51 @@ import { useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from './index';
 import { PersistedState } from './types';
+import type { Position } from '../utils/interpreter';
 
 const STORAGE_KEY = 'fanuc-mvp-state';
+
+export function isUnsetPosition(p: Position): boolean {
+  return p.x === 0 && p.y === 0 && p.z === 0 && p.rx === 0 && p.ry === 0 && p.rz === 0;
+}
+
+export function taughtPositions(
+  positions: Record<number, Position>
+): Record<number, Position> {
+  const taught: Record<number, Position> = {};
+  for (const [key, position] of Object.entries(positions)) {
+    if (!isUnsetPosition(position)) {
+      taught[Number(key)] = position;
+    }
+  }
+  return taught;
+}
+
+export function applyPersistedState(persistedState: PersistedState): void {
+  const store = useAppStore.getState();
+
+  if (persistedState.program) {
+    store.setProgram(persistedState.program);
+  }
+
+  if (persistedState.positions) {
+    Object.entries(persistedState.positions).forEach(([indexStr, position]) => {
+      if (isUnsetPosition(position)) {
+        return;
+      }
+      const index = parseInt(indexStr, 10);
+      if (!isNaN(index)) {
+        store.definePosition(index, position);
+      }
+    });
+  }
+
+  if (persistedState.breakpointLines) {
+    persistedState.breakpointLines.forEach((line) => {
+      store.addBreakpoint(line);
+    });
+  }
+}
 
 async function writeItem(key: string, value: string): Promise<void> {
   try {
@@ -43,7 +86,7 @@ export async function saveState(): Promise<void> {
 
     const persistedState: PersistedState = {
       program: state.program,
-      positions: state.interpreterState.positions,
+      positions: taughtPositions(state.interpreterState.positions),
       breakpointLines: state.breakpointLines,
     };
 
@@ -77,29 +120,7 @@ export function useRestorePersistedState() {
     (async () => {
       const persistedState = await loadState();
       if (persistedState) {
-        const store = useAppStore.getState();
-
-        // Restore program
-        if (persistedState.program) {
-          store.setProgram(persistedState.program);
-        }
-
-        // Restore positions
-        if (persistedState.positions) {
-          Object.entries(persistedState.positions).forEach(([indexStr, position]) => {
-            const index = parseInt(indexStr, 10);
-            if (!isNaN(index)) {
-              store.definePosition(index, position);
-            }
-          });
-        }
-
-        // Restore breakpoints
-        if (persistedState.breakpointLines) {
-          persistedState.breakpointLines.forEach((line) => {
-            store.addBreakpoint(line);
-          });
-        }
+        applyPersistedState(persistedState);
       }
     })();
   }, []);
