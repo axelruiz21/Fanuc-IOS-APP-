@@ -30,6 +30,16 @@ describe('useAppStore', () => {
     expect(s.interpreterState.currentPosition?.x).toBe(150);
     expect(s.interpreterState.io.DO[1]).toBe(false);
   });
+
+  it('resetExecution preserves seeded positions and breakpoints', () => {
+    useAppStore.getState().addBreakpoint(3);
+    useAppStore.getState().resetExecution();
+
+    const s = useAppStore.getState();
+    expect(s.interpreterState.positions[1].x).toBe(100);
+    expect(s.breakpointLines).toContain(3);
+    expect(s.interpreter.getState().breakPoints.has(3)).toBe(true);
+  });
 });
 
 describe('persistence', () => {

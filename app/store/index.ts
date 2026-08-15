@@ -216,10 +216,12 @@ export const useAppStore = create<AppStore>()(
     },
 
     resetExecution: () => {
-      const interpreter = get().interpreter;
-      interpreter.reset();
+      const breakpointLines = get().breakpointLines;
+      const interpreter = createSeededInterpreter();
+      breakpointLines.forEach((line) => interpreter.addBreakPoint(line));
 
       set((state) => {
+        state.interpreter = interpreter;
         state.interpreterState = interpreter.getState();
         state.executionResult = null;
         state.executionLogs = [];

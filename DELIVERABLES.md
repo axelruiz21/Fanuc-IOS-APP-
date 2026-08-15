@@ -3,9 +3,9 @@
 > Repair in progress: see docs/superpowers/specs/2026-08-15-fanuc-mvp-repair-design.md
 > Do not treat this file as current QA status.
 
-**Mission Completion:** ✅ COMPLETE  
+**Mission Completion:** Repair in progress (see repair design spec)  
 **Delivery Date:** 2026-02-10  
-**All Phases:** 1, 2, 3, 4 ✅  
+**All Phases:** 1–4 originally claimed; interpreter/UI repair ongoing — not all deliverables are wired or QA-complete  
 
 ---
 
@@ -151,10 +151,10 @@ interface Viewport3DProps {
 ### 6. RobotArm.tsx
 **Path:** `/app/components/RobotArm.tsx`  
 **Lines:** 250  
-**Status:** ✅ COMPLETE  
+**Status:** ✅ COMPLETE (component exists; **not wired** — `App.tsx` uses `Viewport3D` 2D canvas instead)
 
 **Features:**
-- Three.js 3D rendering
+- Three.js 3D rendering (component only; not mounted in the running app)
 - React Three Fiber integration
 - Four-link robot arm model
 - 5 cylinders (base + 4 links)
@@ -306,10 +306,12 @@ useAppReset()             // Reset & utilities
 
 ## 📦 Phase 4: 3D Rendering Integration (2 files)
 
+> **Note:** Phase 4 components exist but are not integrated. The running app uses `Viewport3D` (2D canvas). `RobotArm` / Three.js is not wired into `App.tsx`.
+
 ### 1. RobotArm.tsx (Three.js)
 **Path:** `/app/components/RobotArm.tsx`  
 **Lines:** 250  
-**Status:** ✅ COMPLETE  
+**Status:** Component present; not wired in app (see note above)
 
 **3D Components:**
 - `RobotLink` - Cylinder link

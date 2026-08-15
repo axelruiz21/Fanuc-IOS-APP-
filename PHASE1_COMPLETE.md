@@ -232,7 +232,7 @@ vm.setDigitalInput(n, v) // Simulate DI input
 - I/O simulation
 
 ### ⏭️ Not Yet Implemented (Phase 2+)
-- CALL recursion (stack ready, not executed)
+- CALL (throws; not implemented in MVP)
 - Subprogram libraries
 - GOTO labels
 - WHILE loops

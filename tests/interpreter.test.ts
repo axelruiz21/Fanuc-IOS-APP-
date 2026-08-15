@@ -115,6 +115,62 @@ describe('IF/ELSE', () => {
   });
 });
 
+describe('step()', () => {
+  it('lands on ELSE body after false IF instead of skipping past jump target', async () => {
+    const vm = new FANUCInterpreter();
+    vm.addBreakPoint(1); // 0-based: IF line
+    const program = [
+      'PR[1]=10',
+      'IF (PR[1]>50)',
+      'PR[2]=1',
+      'ELSE',
+      'PR[2]=2',
+      'ENDIF',
+      'END',
+    ].join('\n');
+
+    const paused = await vm.execute(program);
+    expect(paused.state.isPaused).toBe(true);
+
+    const afterIf = await vm.step();
+    expect(afterIf.success).toBe(true);
+
+    const afterElseBody = await vm.step();
+    expect(afterElseBody.success).toBe(true);
+    expect(vm.getRegister(2)).toBe(2);
+  });
+});
+
+describe('continue() errors', () => {
+  it('returns ExecutionResult on CALL failure and clears isRunning', async () => {
+    const vm = new FANUCInterpreter();
+    vm.addBreakPoint(0);
+    const paused = await vm.execute('CALL LESSON2\nEND');
+    expect(paused.state.isPaused).toBe(true);
+
+    const resumed = await vm.continue();
+    expect(resumed.success).toBe(false);
+    expect(resumed.error).toMatch(/not implemented/i);
+    expect(resumed.state.isRunning).toBe(false);
+  });
+});
+
+describe('bounds', () => {
+  it('rejects out-of-range PR assignment', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('PR[101]=5\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/PR index must be 1-100/);
+  });
+
+  it('rejects out-of-range DI in IF condition', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('IF (DI[33]=OFF)\nENDIF\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/DI index must be 1-32/);
+  });
+});
+
 describe('expressions and snapshots', () => {
   it('adds two registers', async () => {
     const vm = new FANUCInterpreter();

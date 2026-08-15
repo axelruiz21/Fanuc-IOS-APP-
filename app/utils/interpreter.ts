@@ -311,8 +311,11 @@ export class FANUCInterpreter {
         this.state.programCounter++;
         this.context.log.push(`[STEP] Skipped empty/comment at line ${this.state.programCounter}`);
       } else {
+        this.context.didJump = false;
         await this.executeLine(trimmed, this.state.programCounter);
-        this.state.programCounter++;
+        if (!this.context.didJump) {
+          this.state.programCounter++;
+        }
       }
 
       return {
@@ -352,7 +355,20 @@ export class FANUCInterpreter {
     if (this.state.breakPoints.has(this.state.programCounter)) {
       this.context.skipBreakpointOnce = true;
     }
-    return this.runLoop(Date.now());
+
+    const startTime = Date.now();
+    try {
+      return await this.runLoop(startTime);
+    } catch (err) {
+      this.state.isRunning = false;
+      return {
+        success: false,
+        error: (err as Error).message,
+        state: this.getState(),
+        executionLog: this.context.log,
+        elapsedMs: Date.now() - startTime,
+      };
+    }
   }
 
   /**
@@ -860,6 +876,7 @@ export class FANUCInterpreter {
       const prMatch = lhs.match(/PR\[(\d+)\]/i);
       if (prMatch) {
         const regIdx = parseInt(prMatch[1], 10);
+        this.assertPrIndex(regIdx);
         const value = this.evaluateExpression(rhs);
         this.state.registers.PR[regIdx] = value;
         this.context.log.push(`[${lineNumber}] PR[${regIdx}] = ${value}`);
@@ -882,6 +899,7 @@ export class FANUCInterpreter {
     const diMatch = trimmed.match(/DI\[(\d+)\]\s*=\s*(ON|OFF)/i);
     if (diMatch) {
       const index = parseInt(diMatch[1], 10);
+      this.assertDiIndex(index);
       const expectedValue = diMatch[2].toUpperCase() === 'ON';
       return this.state.io.DI[index] === expectedValue;
     }
@@ -890,6 +908,7 @@ export class FANUCInterpreter {
     const prMatch = trimmed.match(/PR\[(\d+)\]\s*(>|<|=|>=|<=)\s*(\d+)/i);
     if (prMatch) {
       const index = parseInt(prMatch[1], 10);
+      this.assertPrIndex(index);
       const operator = prMatch[2];
       const value = parseInt(prMatch[3], 10);
       const regValue = this.state.registers.PR[index];
@@ -926,21 +945,29 @@ export class FANUCInterpreter {
 
     const twoPr = trimmed.match(/PR\[(\d+)\]\s*([+\-*/])\s*PR\[(\d+)\]/i);
     if (twoPr) {
-      const left = this.state.registers.PR[parseInt(twoPr[1], 10)] ?? 0;
-      const right = this.state.registers.PR[parseInt(twoPr[3], 10)] ?? 0;
+      const leftIdx = parseInt(twoPr[1], 10);
+      const rightIdx = parseInt(twoPr[3], 10);
+      this.assertPrIndex(leftIdx);
+      this.assertPrIndex(rightIdx);
+      const left = this.state.registers.PR[leftIdx] ?? 0;
+      const right = this.state.registers.PR[rightIdx] ?? 0;
       return this.applyArith(left, twoPr[2], right);
     }
 
     const onePr = trimmed.match(/PR\[(\d+)\]\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)/i);
     if (onePr) {
-      const left = this.state.registers.PR[parseInt(onePr[1], 10)] ?? 0;
+      const leftIdx = parseInt(onePr[1], 10);
+      this.assertPrIndex(leftIdx);
+      const left = this.state.registers.PR[leftIdx] ?? 0;
       return this.applyArith(left, onePr[2], parseFloat(onePr[3]));
     }
 
     // PR[n] reference
     const prMatch = trimmed.match(/PR\[(\d+)\]/i);
     if (prMatch) {
-      return this.state.registers.PR[parseInt(prMatch[1], 10)] ?? 0;
+      const index = parseInt(prMatch[1], 10);
+      this.assertPrIndex(index);
+      return this.state.registers.PR[index] ?? 0;
     }
 
     throw new Error(`Cannot evaluate expression: ${expr}`);
@@ -953,6 +980,18 @@ export class FANUCInterpreter {
     if (op === '*') return left * right;
     if (op === '/') return left / right;
     throw new Error(`Unknown operator ${op}`);
+  }
+
+  private assertPrIndex(index: number): void {
+    if (index < 1 || index > 100) {
+      throw new Error(`PR index must be 1-100, got ${index}`);
+    }
+  }
+
+  private assertDiIndex(index: number): void {
+    if (index < 1 || index > 32) {
+      throw new Error(`DI index must be 1-32, got ${index}`);
+    }
   }
 }
 

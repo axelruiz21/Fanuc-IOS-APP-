@@ -70,7 +70,7 @@ await vm.continue();
 - ✅ Full error handling
 
 **Files:**
-- `/app/utils/interpreter.ts` (965 lines, production-ready)
+- `/app/utils/interpreter.ts` (965 lines, repaired MVP engine)
 
 **Documentation:**
 - `PHASE1_COMPLETE.md` — Complete technical spec
@@ -407,7 +407,7 @@ npm run docs         # Generate documentation
 **A:** Phase 3 (state management). Phase 1 interpreter is stateless (loads fresh each time).
 
 ### Q: What about subprograms?
-**A:** CALL stack is ready (Phase 1). CALL execution is Phase 3+.
+**A:** CALL throws `CALL is not implemented in this MVP`. Subprogram execution is out of scope for this repair.
 
 ### Q: How fast is the interpreter?
 **A:** <100ms for typical 10-20 line programs. TBD: benchmark Phase 1 vs Phase 2 overhead.
