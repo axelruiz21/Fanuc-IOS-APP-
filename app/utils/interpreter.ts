@@ -4,6 +4,8 @@
  * Production-ready TypeScript implementation
  */
 
+import { HOME_JOINTS, inverse, type Joints } from '../kinematics';
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -43,6 +45,7 @@ export interface InterpreterState {
   registers: Registers;                      // PR[1..100]
   io: IOState;                               // DI/DO
   currentPosition: Position | null;          // Last moved-to position
+  currentJoints: Joints;                     // J1..J6 radians, last IK solution
   programCounter: number;                    // Current line
   callStack: number[];                       // For nested calls
   isRunning: boolean;
@@ -117,6 +120,7 @@ export class FANUCInterpreter {
       registers: { PR: {} },
       io: { DI: {}, DO: {} },
       currentPosition: null,
+      currentJoints: [...HOME_JOINTS] as Joints,
       programCounter: 0,
       callStack: [],
       isRunning: false,
@@ -228,6 +232,7 @@ export class FANUCInterpreter {
       registers: { PR: { ...this.state.registers.PR } },
       io: { DI: { ...this.state.io.DI }, DO: { ...this.state.io.DO } },
       currentPosition: this.state.currentPosition ? { ...this.state.currentPosition } : null,
+      currentJoints: [...this.state.currentJoints] as Joints,
       programCounter: this.state.programCounter,
       callStack: [...this.state.callStack],
       isRunning: this.state.isRunning,
@@ -670,6 +675,27 @@ export class FANUCInterpreter {
   }
 
   /**
+   * Solve IK and jump to the target. Throws `MOVE <reason>` on failure.
+   */
+  private applyIkMove(position: Position, lineNumber: number, logPrefix: string): void {
+    if (!this.context) throw new Error('No execution context');
+
+    const ik = inverse(position, this.state.currentJoints);
+    if (!ik.ok) {
+      throw new Error(ik.reason);
+    }
+
+    this.state.currentJoints = [...ik.joints] as Joints;
+    this.state.currentPosition = { ...position };
+    const jointsDeg = ik.joints
+      .map((q) => ((q * 180) / Math.PI).toFixed(1))
+      .join(', ');
+    this.context.log.push(
+      `[${lineNumber}] ${logPrefix} -> X:${position.x} Y:${position.y} Z:${position.z} J1..J6: ${jointsDeg}`
+    );
+  }
+
+  /**
    * MOVE P[n] command
    */
   private executeMOVE(tokens: Token[], lineNumber: number): void {
@@ -678,9 +704,7 @@ export class FANUCInterpreter {
     try {
       const { index } = this.parsePositionRef(tokens, 1);
       const position = this.state.positions[index];
-
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] MOVE P[${index}] -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `MOVE P[${index}]`);
     } catch (err) {
       throw new Error(`MOVE: ${(err as Error).message}`);
     }
@@ -696,10 +720,8 @@ export class FANUCInterpreter {
       const { index, nextIdx } = this.parsePositionRef(tokens, 1);
       const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 100;
-
       const position = this.state.positions[index];
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] J P[${index}] ${speed}% -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `J P[${index}] ${speed}%`);
     } catch (err) {
       throw new Error(`J: ${(err as Error).message}`);
     }
@@ -715,10 +737,8 @@ export class FANUCInterpreter {
       const { index, nextIdx } = this.parsePositionRef(tokens, 1);
       const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 500;
-
       const position = this.state.positions[index];
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] L P[${index}] ${speed}mm/s -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `L P[${index}] ${speed}mm/s`);
     } catch (err) {
       throw new Error(`L: ${(err as Error).message}`);
     }

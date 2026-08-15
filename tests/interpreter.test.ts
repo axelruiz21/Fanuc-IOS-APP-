@@ -30,7 +30,7 @@ describe('tokenization via public commands', () => {
 describe('run loop', () => {
   it('keeps comment lines so PC matches the editor', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 5, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
     const program = `; comment\nMOVE P[1]\nEND`;
     const result = await vm.execute(program);
     expect(result.success).toBe(true);
@@ -47,15 +47,15 @@ describe('run loop', () => {
 
   it('continue after breakpoint does not restart from line 0', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(2, { x: 2, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
     vm.addBreakPoint(1); // 0-based: MOVE P[2]
     const first = await vm.execute('MOVE P[1]\nMOVE P[2]\nEND');
     expect(first.state.isPaused).toBe(true);
-    expect(first.state.currentPosition?.x).toBe(1);
+    expect(first.state.currentPosition?.x).toBe(100);
     const resumed = await vm.continue();
     expect(resumed.success).toBe(true);
-    expect(resumed.state.currentPosition?.x).toBe(2);
+    expect(resumed.state.currentPosition?.x).toBe(150);
     expect(resumed.executionLog.some((l) => l.includes('MOVE P[1]'))).toBe(true);
   });
 });
@@ -83,15 +83,15 @@ describe('WAIT', () => {
 describe('FOR', () => {
   it('iterates and supports P[J]', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 10, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(2, { x: 20, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(3, { x: 30, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(3, { x: 100, y: 100, z: 100, rx: 0, ry: 0, rz: 0 });
     const result = await vm.execute(
       'PR[2]=0\nFOR J=1 TO 3\nPR[2]=PR[2]+1\nMOVE P[J]\nENDFOR\nEND'
     );
     expect(result.success).toBe(true);
     expect(result.state.registers.PR[2]).toBe(3);
-    expect(result.state.currentPosition?.x).toBe(30);
+    expect(result.state.currentPosition?.x).toBe(100);
   });
 });
 
@@ -194,9 +194,40 @@ describe('expressions and snapshots', () => {
 
   it('reads J speed after the position ref', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
     const result = await vm.execute('J P[1] 40%\nEND');
     expect(result.success).toBe(true);
     expect(result.executionLog.join('\n')).toMatch(/40%/);
+  });
+});
+
+describe('MOVE inverse kinematics', () => {
+  const reachable = { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 };
+  const unreachable = { x: 2000, y: 0, z: 0, rx: 180, ry: 0, rz: 0 };
+
+  it('sets currentJoints on a reachable MOVE', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    const result = await vm.execute('MOVE P[1]\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.currentJoints).toHaveLength(6);
+    expect(result.state.currentJoints.some((q) => q !== 0)).toBe(true);
+    expect(result.executionLog.join('\n')).toMatch(/J1/);
+  });
+
+  it('fails unreachable MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, unreachable);
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/unreachable/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
   });
 });
