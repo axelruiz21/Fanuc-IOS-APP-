@@ -466,6 +466,15 @@ export class FANUCInterpreter {
       case 'IF':
         this.executeIF(tokens, lineNumber, line);
         break;
+      case 'THEN':
+        break;
+      case 'ELSE': {
+        const { endifLine } = this.findMatchingElseOrEndif(lineNumber + 1);
+        this.state.programCounter = endifLine + 1;
+        this.context.didJump = true;
+        log.push(`[${lineNumber}] ELSE`);
+        break;
+      }
       case 'FOR':
         this.executeFOR(tokens, lineNumber, line);
         break;
@@ -756,36 +765,38 @@ export class FANUCInterpreter {
     throw new Error('WAIT expects seconds or DIN(DI[n])');
   }
 
+  private findMatchingElseOrEndif(from: number): { elseLine: number | null; endifLine: number } {
+    if (!this.context) throw new Error('No execution context');
+    let elseLine: number | null = null;
+    for (let i = from; i < this.context.lines.length; i++) {
+      const cmd = this.context.lines[i].trim().toUpperCase();
+      if (cmd === 'ELSE' || cmd.startsWith('ELSE ')) {
+        elseLine = i;
+      }
+      if (cmd === 'ENDIF' || cmd.startsWith('ENDIF ')) {
+        return { elseLine, endifLine: i };
+      }
+    }
+    throw new Error('Missing ENDIF');
+  }
+
   /**
    * IF condition THEN ... ELSE ... ENDIF
    */
-  private executeIF(tokens: Token[], lineNumber: number, fullLine: string): void {
+  private executeIF(_tokens: Token[], lineNumber: number, fullLine: string): void {
     if (!this.context) throw new Error('No execution context');
-
-    try {
-      // Find THEN, ELSE, ENDIF keywords in the full line (or following lines)
-      const conditionStr = fullLine.substring(fullLine.indexOf('(') + 1, fullLine.lastIndexOf(')'));
-      const conditionResult = this.evaluateCondition(conditionStr);
-
-      this.context.log.push(`[${lineNumber}] IF (${conditionStr}) = ${conditionResult}`);
-
-      if (!conditionResult) {
-        // Skip to ELSE or ENDIF
-        while (
-          this.state.programCounter < this.context.lines.length &&
-          !this.context.lines[this.state.programCounter].toUpperCase().includes('ENDIF') &&
-          !this.context.lines[this.state.programCounter].toUpperCase().includes('ELSE')
-        ) {
-          this.state.programCounter++;
-        }
-
-        // If ELSE, skip to ENDIF
-        if (this.context.lines[this.state.programCounter]?.toUpperCase().includes('ELSE')) {
-          this.state.programCounter++;
-        }
-      }
-    } catch (err) {
-      throw new Error(`IF: ${(err as Error).message}`);
+    const open = fullLine.indexOf('(');
+    const close = fullLine.lastIndexOf(')');
+    if (open === -1 || close === -1) throw new Error('IF requires (condition)');
+    const conditionStr = fullLine.substring(open + 1, close);
+    const conditionResult = this.evaluateCondition(conditionStr);
+    this.context.log.push(`[${lineNumber}] IF (${conditionStr}) = ${conditionResult}`);
+    const { elseLine, endifLine } = this.findMatchingElseOrEndif(lineNumber + 1);
+    if (conditionResult) {
+      this.context.didJump = false;
+    } else {
+      this.state.programCounter = elseLine !== null ? elseLine + 1 : endifLine + 1;
+      this.context.didJump = true;
     }
   }
 

@@ -79,3 +79,23 @@ describe('WAIT', () => {
     expect(result.state.io.DO[2]).toBe(true);
   });
 });
+
+describe('IF/ELSE', () => {
+  it('runs THEN and skips ELSE when true', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(
+      'PR[1]=75\nIF (PR[1]>50)\nPR[2]=1\nELSE\nPR[2]=2\nENDIF\nEND'
+    );
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(1);
+  });
+
+  it('runs ELSE when false', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(
+      'PR[1]=10\nIF (PR[1]>50)\nPR[2]=1\nELSE\nPR[2]=2\nENDIF\nEND'
+    );
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(2);
+  });
+});
