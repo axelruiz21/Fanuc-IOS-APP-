@@ -26,3 +26,28 @@ describe('tokenization via public commands', () => {
     expect(result.error).toMatch(/1-100|index/i);
   });
 });
+
+describe('run loop', () => {
+  it('keeps comment lines so PC matches the editor', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 5, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    const program = `; comment\nMOVE P[1]\nEND`;
+    const result = await vm.execute(program);
+    expect(result.success).toBe(true);
+    expect(result.executionLog.some((l) => l.includes('[1] MOVE'))).toBe(true);
+  });
+
+  it('continue after breakpoint does not restart from line 0', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 2, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.addBreakPoint(1); // 0-based: MOVE P[2]
+    const first = await vm.execute('MOVE P[1]\nMOVE P[2]\nEND');
+    expect(first.state.isPaused).toBe(true);
+    expect(first.state.currentPosition?.x).toBe(1);
+    const resumed = await vm.continue();
+    expect(resumed.success).toBe(true);
+    expect(resumed.state.currentPosition?.x).toBe(2);
+    expect(resumed.executionLog.some((l) => l.includes('MOVE P[1]'))).toBe(true);
+  });
+});

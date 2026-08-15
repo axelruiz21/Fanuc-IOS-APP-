@@ -85,12 +85,24 @@ interface ASTNode {
 /**
  * Command execution context
  */
+interface LoopFrame {
+  headerLine: number;
+  bodyStart: number;
+  variable: string;
+  current: number;
+  end: number;
+  registerIndex: number;
+}
+
 interface ExecutionContext {
   state: InterpreterState;
   lines: string[];
   log: string[];
   stopExecution: boolean;
-  pauseUntil?: number; // Timestamp for WAIT commands
+  pauseUntil?: number;
+  didJump: boolean;
+  loopStack: LoopFrame[];
+  skipBreakpointOnce?: boolean;
 }
 
 // ============================================================================
@@ -255,58 +267,13 @@ export class FANUCInterpreter {
         lines,
         log: [],
         stopExecution: false,
-        pauseUntil: undefined,
+        didJump: false,
+        loopStack: [],
       };
-
-      // Execute
       this.state.isRunning = true;
+      this.state.isPaused = false;
       this.state.programCounter = 0;
-
-      while (this.state.programCounter < lines.length && !this.context.stopExecution) {
-        const lineNumber = this.state.programCounter;
-        const line = lines[lineNumber].trim();
-
-        // Skip empty lines and comments
-        if (!line || line.startsWith(';')) {
-          this.state.programCounter++;
-          continue;
-        }
-
-        // Check breakpoint
-        if (this.state.breakPoints.has(lineNumber)) {
-          this.context.log.push(`[BREAKPOINT] Line ${lineNumber}: ${line}`);
-          this.state.isPaused = true;
-          break;
-        }
-
-        // Handle async wait
-        if (this.asyncWaitTimestamp) {
-          if (Date.now() < this.asyncWaitTimestamp) {
-            break; // Still waiting
-          }
-          this.asyncWaitTimestamp = null;
-        }
-
-        // Execute line
-        try {
-          await this.executeLine(line, lineNumber);
-        } catch (err) {
-          throw new Error(`Line ${lineNumber}: ${(err as Error).message}`);
-        }
-
-        this.state.programCounter++;
-      }
-
-      this.state.isRunning = false;
-
-      return {
-        success: true,
-        state: this.getState(),
-        executionLog: this.context.log,
-        nextLineNumber: this.state.programCounter,
-        currentLine: this.state.programCounter < lines.length ? lines[this.state.programCounter] : 'END',
-        elapsedMs: Date.now() - startTime,
-      };
+      return await this.runLoop(startTime);
     } catch (err) {
       this.state.isRunning = false;
       return {
@@ -336,13 +303,14 @@ export class FANUCInterpreter {
     const startTime = Date.now();
 
     try {
-      const line = this.context.lines[this.state.programCounter]?.trim() ?? '';
+      const line = this.context.lines[this.state.programCounter] ?? '';
+      const trimmed = line.trim();
 
-      if (!line || line.startsWith(';')) {
+      if (!trimmed || trimmed.startsWith(';')) {
         this.state.programCounter++;
         this.context.log.push(`[STEP] Skipped empty/comment at line ${this.state.programCounter}`);
       } else {
-        await this.executeLine(line, this.state.programCounter);
+        await this.executeLine(trimmed, this.state.programCounter);
         this.state.programCounter++;
       }
 
@@ -380,7 +348,10 @@ export class FANUCInterpreter {
     }
 
     this.state.isPaused = false;
-    return this.execute(this.context.lines.join('\n'));
+    if (this.state.breakPoints.has(this.state.programCounter)) {
+      this.context.skipBreakpointOnce = true;
+    }
+    return this.runLoop(Date.now());
   }
 
   /**
@@ -395,24 +366,73 @@ export class FANUCInterpreter {
   // ============================================================================
 
   /**
-   * Preprocess program: remove metadata, clean lines
+   * Preprocess program: remove metadata, keep blanks and comments
    */
   private preprocessProgram(program: string): string[] {
-    return program
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => {
-        // Skip FANUC metadata lines
-        if (line.startsWith('/')) return false;
-        if (line.startsWith('/PROG')) return false;
-        if (line.startsWith('/COMMENT')) return false;
-        if (line.startsWith('/ACCESS')) return false;
-        if (line.startsWith('/REL')) return false;
-        if (line.startsWith('/ATTR')) return false;
-        if (line.startsWith('/BODY')) return false;
-        if (line.startsWith('/PTP')) return false;
-        return true;
-      });
+    return program.split('\n').filter((raw) => {
+      const t = raw.trim().toUpperCase();
+      if (t.startsWith('/PROG') || t.startsWith('/BODY') || t.startsWith('/ATTR')) return false;
+      if (t.startsWith('/COMMENT') || t.startsWith('/ACCESS') || t.startsWith('/REL') || t.startsWith('/PTP')) return false;
+      return true;
+    });
+  }
+
+  private async runLoop(startTime: number): Promise<ExecutionResult> {
+    if (!this.context) {
+      throw new Error('No execution context');
+    }
+
+    this.state.isRunning = true;
+
+    while (
+      this.state.programCounter < this.context.lines.length &&
+      !this.context.stopExecution &&
+      !this.state.isPaused
+    ) {
+      const lineNumber = this.state.programCounter;
+      const line = this.context.lines[lineNumber] ?? '';
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith(';')) {
+        this.state.programCounter++;
+        continue;
+      }
+
+      if (this.state.breakPoints.has(lineNumber) && !this.context.skipBreakpointOnce) {
+        this.context.log.push(`[BREAKPOINT] Line ${lineNumber}: ${trimmed}`);
+        this.state.isPaused = true;
+        break;
+      }
+      this.context.skipBreakpointOnce = false;
+
+      this.context.didJump = false;
+      try {
+        await this.executeLine(trimmed, lineNumber);
+      } catch (err) {
+        throw new Error(`Line ${lineNumber}: ${(err as Error).message}`);
+      }
+
+      if (this.context.stopExecution || this.state.isPaused) {
+        break;
+      }
+
+      if (!this.context.didJump) {
+        this.state.programCounter++;
+      }
+    }
+
+    this.state.isRunning = false;
+    return {
+      success: true,
+      state: this.getState(),
+      executionLog: this.context.log,
+      nextLineNumber: this.state.programCounter,
+      currentLine:
+        this.state.programCounter < this.context.lines.length
+          ? this.context.lines[this.state.programCounter]
+          : 'END',
+      elapsedMs: Date.now() - startTime,
+    };
   }
 
   /**
@@ -451,10 +471,11 @@ export class FANUCInterpreter {
         this.executeFOR(tokens, lineNumber, line);
         break;
       case 'END':
+        log.push(`[${lineNumber}] ${command}`);
+        this.context.stopExecution = true;
+        break;
       case 'ENDIF':
       case 'ENDFOR':
-        log.push(`[${lineNumber}] ${command}`);
-        break;
       case 'CALL':
         this.executeCALL(tokens, lineNumber);
         break;
