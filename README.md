@@ -2,7 +2,7 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** Phase 1 ✅ Complete | Phase 2-4 ⏳ In Progress
+**Status:** Phase 1 interpreter is the engine; repair required (tokenizer, control flow, tests). CALL is not implemented. Viewport is 2D.
 
 ---
 

@@ -1,5 +1,8 @@
 # FANUC iOS MVP - Accelerated Build Deliverables
 
+> Repair in progress: see docs/superpowers/specs/2026-08-15-fanuc-mvp-repair-design.md
+> Do not treat this file as current QA status.
+
 **Mission Completion:** ✅ COMPLETE  
 **Delivery Date:** 2026-02-10  
 **All Phases:** 1, 2, 3, 4 ✅  

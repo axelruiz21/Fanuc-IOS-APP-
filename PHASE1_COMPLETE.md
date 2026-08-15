@@ -1,6 +1,6 @@
 # Phase 1: FANUC Interpreter - COMPLETE ✅
 
-**Status:** PRODUCTION READY  
+**Status:** Repair in progress — see `docs/superpowers/specs/2026-08-15-fanuc-mvp-repair-design.md`  
 **Deliverable Location:** `/app/utils/interpreter.ts`  
 **Lines of Code:** 970+  
 **Completion Date:** 2026-02-10
@@ -53,7 +53,7 @@ Public Methods:
 | WAIT DIN(DI[n]) | ✅ | Wait for input condition |
 | IF...THEN...ELSE...ENDIF | ✅ | Conditional branching |
 | FOR J=start TO end...ENDFOR | ✅ | Loop structure |
-| CALL program | ✅ | Call stack ready (MVP stub) |
+| CALL program | ❌ | Not implemented (throws) |
 | PR[n] = value | ✅ | Register assignment |
 | Comments (;) | ✅ | Full support |
 
@@ -329,6 +329,6 @@ fanuc-ios-mvp/
 
 ---
 
-**Status:** ✅ **READY FOR INTEGRATION**
+**Status:** Repair in progress
 
-The Phase 1 interpreter is production-ready and awaits team feedback before proceeding to Phase 2 (UI Components).
+See `docs/superpowers/specs/2026-08-15-fanuc-mvp-repair-design.md` for the current repair plan and MVP scope.
