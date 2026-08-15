@@ -26,6 +26,7 @@ function createSeededInterpreter(): FANUCInterpreter {
   const vm = new FANUCInterpreter();
   vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
   vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 45, ry: 0, rz: 0 });
+  vm.definePosition(10, { x: 2000, y: 0, z: 0, rx: 180, ry: 0, rz: 0 });
   return vm;
 }
 

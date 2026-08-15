@@ -4,6 +4,10 @@ Educational robot programming simulator for iOS, built with React Native and Typ
 
 **Status:** MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. CALL is not implemented.
 
+**Run (web):** `npm install && npm run start:web`
+
+**Smoke:** (A) Play the default program and wait >1s (`WAIT 1.0`) — arm jumps P[1] then P[2]. (B) Replace the program with `MOVE P[10]` / `END` and Play — error contains `unreachable`; the arm does not move. P[10] is seeded at 2000 mm for this check.
+
 ---
 
 ## 📖 Quick Start
