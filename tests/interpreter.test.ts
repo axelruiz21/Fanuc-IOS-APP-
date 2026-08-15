@@ -59,3 +59,23 @@ describe('run loop', () => {
     expect(resumed.executionLog.some((l) => l.includes('MOVE P[1]'))).toBe(true);
   });
 });
+
+describe('WAIT', () => {
+  it('delays then continues', async () => {
+    const vm = new FANUCInterpreter();
+    const started = Date.now();
+    const result = await vm.execute('WAIT 0.05\nDOUT OT[1]=ON\nEND');
+    expect(result.success).toBe(true);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(45);
+    expect(result.state.io.DO[1]).toBe(true);
+  });
+
+  it('WAIT DIN unblocks when input goes high', async () => {
+    const vm = new FANUCInterpreter();
+    const run = vm.execute('WAIT DIN(DI[1])\nDOUT OT[2]=ON\nEND');
+    setTimeout(() => vm.setDigitalInput(1, true), 30);
+    const result = await run;
+    expect(result.success).toBe(true);
+    expect(result.state.io.DO[2]).toBe(true);
+  });
+});

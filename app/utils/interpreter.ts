@@ -113,7 +113,6 @@ interface ExecutionContext {
 export class FANUCInterpreter {
   private state: InterpreterState;
   private context: ExecutionContext | null = null;
-  private asyncWaitTimestamp: number | null = null;
 
   constructor() {
     this.state = this.initializeState();
@@ -241,7 +240,6 @@ export class FANUCInterpreter {
   public reset(): void {
     this.state = this.initializeState();
     this.context = null;
-    this.asyncWaitTimestamp = null;
   }
 
   /**
@@ -727,50 +725,35 @@ export class FANUCInterpreter {
   /**
    * WAIT n.n or WAIT DIN(DI[n]) command
    */
+  private async sleep(ms: number): Promise<void> {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      if (this.state.isPaused || this.context?.stopExecution) return;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(20, end - Date.now())));
+    }
+  }
+
   private async executeWAIT(tokens: Token[], lineNumber: number): Promise<void> {
     if (!this.context) throw new Error('No execution context');
 
-    try {
-      const secondToken = tokens[1];
-
-      // WAIT seconds
-      if (secondToken?.type === 'NUMBER') {
-        const seconds = parseFloat(secondToken.value);
-        this.context.log.push(`[${lineNumber}] WAIT ${seconds}s`);
-        this.asyncWaitTimestamp = Date.now() + seconds * 1000;
-        return;
-      }
-
-      // WAIT DIN(DI[n])
-      if (secondToken?.value.toUpperCase() === 'DIN') {
-        const parenIdx = tokens.findIndex((t, i) => i > 1 && t.value === '(');
-        const closeParenIdx = tokens.findIndex((t, i) => i > parenIdx && t.value === ')');
-
-        if (parenIdx === -1 || closeParenIdx === -1) {
-          throw new Error('Invalid DIN syntax');
-        }
-
-        const diToken = tokens[parenIdx + 1];
-        const bracketIdx = tokens.findIndex((t, i) => i > parenIdx && t.value === '[');
-        const numToken = tokens[bracketIdx + 1];
-        const closeBracketIdx = tokens.findIndex((t, i) => i > bracketIdx && t.value === ']');
-
-        if (diToken?.value.toUpperCase() !== 'DI' || !numToken?.type || numToken.type !== 'NUMBER') {
-          throw new Error('Invalid DI[n] reference');
-        }
-
-        const inputIndex = parseInt(numToken.value, 10);
-        const inputValue = this.state.io.DI[inputIndex];
-
-        this.context.log.push(`[${lineNumber}] WAIT DIN(DI[${inputIndex}]) = ${inputValue}`);
-
-        if (!inputValue) {
-          this.asyncWaitTimestamp = Date.now() + 100; // Poll every 100ms
-        }
-      }
-    } catch (err) {
-      throw new Error(`WAIT: ${(err as Error).message}`);
+    const secondToken = tokens[1];
+    if (secondToken?.type === 'NUMBER') {
+      const seconds = parseFloat(secondToken.value);
+      this.context.log.push(`[${lineNumber}] WAIT ${seconds}s`);
+      await this.sleep(seconds * 1000);
+      return;
     }
+
+    if (secondToken?.value.toUpperCase() === 'DIN') {
+      const { index } = this.parseIORef(tokens, tokens.findIndex((t) => t.value.toUpperCase() === 'DI'));
+      this.context.log.push(`[${lineNumber}] WAIT DIN(DI[${index}])`);
+      while (!this.state.io.DI[index] && !this.state.isPaused && !this.context.stopExecution) {
+        await this.sleep(100);
+      }
+      return;
+    }
+
+    throw new Error('WAIT expects seconds or DIN(DI[n])');
   }
 
   /**
