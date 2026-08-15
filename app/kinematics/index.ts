@@ -11,6 +11,6 @@ export {
   WRIST_SINGULAR_RAD,
   withinLimits,
 } from './lrmate200id';
-export { forward, forwardFrames, jointTransforms } from './solve';
-export type { JointFrame } from './solve';
+export { forward, forwardFrames, inverse, jointTransforms } from './solve';
+export type { IkFailureReason, IkResult, JointFrame } from './solve';
 export { wrapPi } from './math';
