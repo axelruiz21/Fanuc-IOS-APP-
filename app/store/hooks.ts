@@ -3,7 +3,6 @@
  * Phase 3: Convenience hooks for components
  */
 
-import { useCallback } from 'react';
 import { useAppStore } from './index';
 
 /**

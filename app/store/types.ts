@@ -26,7 +26,7 @@ export interface AppState {
 
   // UI State
   selectedTab: 'editor' | 'io' | 'console' | '3d';
-  breakpointLines: Set<number>;
+  breakpointLines: number[];
   showBreakpointPanel: boolean;
 
   // Error State

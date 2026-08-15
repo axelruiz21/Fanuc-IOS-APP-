@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { FANUCInterpreter, Position } from '../utils/interpreter';
-import { AppStore, AppState, AppActions } from './types';
+import { AppStore } from './types';
 
 const INITIAL_PROGRAM = `; FANUC Teach Pendant Program
 ; Define positions and execute movement
@@ -22,6 +22,15 @@ END
 
 const MAX_HISTORY = 50;
 
+function createSeededInterpreter(): FANUCInterpreter {
+  const vm = new FANUCInterpreter();
+  vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+  vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 45, ry: 0, rz: 0 });
+  return vm;
+}
+
+const initialInterpreter = createSeededInterpreter();
+
 export const useAppStore = create<AppStore>()(
   immer((set, get) => ({
     // ============================================================================
@@ -32,8 +41,8 @@ export const useAppStore = create<AppStore>()(
     programHistory: [INITIAL_PROGRAM],
     historyIndex: 0,
 
-    interpreter: new FANUCInterpreter(),
-    interpreterState: new FANUCInterpreter().getState(),
+    interpreter: initialInterpreter,
+    interpreterState: initialInterpreter.getState(),
     executionResult: null,
 
     isRunning: false,
@@ -41,7 +50,7 @@ export const useAppStore = create<AppStore>()(
     executionLogs: [],
 
     selectedTab: 'editor',
-    breakpointLines: new Set(),
+    breakpointLines: [],
     showBreakpointPanel: false,
 
     lastError: null,
@@ -55,14 +64,12 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         state.program = program;
 
-        // Add to history
-        if (
-          state.programHistory[state.historyIndex] !== program &&
-          state.programHistory.length < MAX_HISTORY
-        ) {
-          // Remove any redo history
+        if (state.programHistory[state.historyIndex] !== program) {
           state.programHistory = state.programHistory.slice(0, state.historyIndex + 1);
           state.programHistory.push(program);
+          if (state.programHistory.length > MAX_HISTORY) {
+            state.programHistory.shift();
+          }
           state.historyIndex = state.programHistory.length - 1;
         }
       });
@@ -73,12 +80,12 @@ export const useAppStore = create<AppStore>()(
         state.program += '\n' + text;
         const newProgram = state.program;
 
-        if (
-          state.programHistory[state.historyIndex] !== newProgram &&
-          state.programHistory.length < MAX_HISTORY
-        ) {
+        if (state.programHistory[state.historyIndex] !== newProgram) {
           state.programHistory = state.programHistory.slice(0, state.historyIndex + 1);
           state.programHistory.push(newProgram);
+          if (state.programHistory.length > MAX_HISTORY) {
+            state.programHistory.shift();
+          }
           state.historyIndex = state.programHistory.length - 1;
         }
       });
@@ -132,11 +139,9 @@ export const useAppStore = create<AppStore>()(
           s.interpreterState = result.state;
           s.executionLogs = result.executionLog;
           s.isRunning = false;
-
-          if (!result.success) {
-            s.lastError = result.error || 'Unknown error';
-            s.errorTimestamp = Date.now();
-          }
+          s.isPaused = result.state.isPaused;
+          s.lastError = result.success ? null : result.error || 'Unknown error';
+          s.errorTimestamp = result.success ? null : Date.now();
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -155,6 +160,7 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         state.isPaused = true;
         state.isRunning = false;
+        state.interpreterState = interpreter.getState();
       });
     },
 
@@ -173,11 +179,9 @@ export const useAppStore = create<AppStore>()(
           s.interpreterState = result.state;
           s.executionLogs = result.executionLog;
           s.isRunning = false;
-
-          if (!result.success) {
-            s.lastError = result.error || 'Unknown error';
-            s.errorTimestamp = Date.now();
-          }
+          s.isPaused = result.state.isPaused;
+          s.lastError = result.success ? null : result.error || 'Unknown error';
+          s.errorTimestamp = result.success ? null : Date.now();
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -198,11 +202,9 @@ export const useAppStore = create<AppStore>()(
           s.executionResult = result;
           s.interpreterState = result.state;
           s.executionLogs = result.executionLog;
-
-          if (!result.success) {
-            s.lastError = result.error || 'Unknown error';
-            s.errorTimestamp = Date.now();
-          }
+          s.isPaused = result.state.isPaused;
+          s.lastError = result.success ? null : result.error || 'Unknown error';
+          s.errorTimestamp = result.success ? null : Date.now();
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -284,25 +286,27 @@ export const useAppStore = create<AppStore>()(
     // ============================================================================
 
     addBreakpoint: (lineNumber: number) => {
+      get().interpreter.addBreakPoint(lineNumber);
       set((state) => {
-        state.breakpointLines.add(lineNumber);
-        get().interpreter.addBreakPoint(lineNumber);
+        if (!state.breakpointLines.includes(lineNumber)) {
+          state.breakpointLines.push(lineNumber);
+        }
       });
     },
 
     removeBreakpoint: (lineNumber: number) => {
+      get().interpreter.removeBreakPoint(lineNumber);
       set((state) => {
-        state.breakpointLines.delete(lineNumber);
-        get().interpreter.removeBreakPoint(lineNumber);
+        state.breakpointLines = state.breakpointLines.filter((n) => n !== lineNumber);
       });
     },
 
     clearBreakpoints: () => {
+      const lines = get().breakpointLines;
+      const interpreter = get().interpreter;
+      lines.forEach((line) => interpreter.removeBreakPoint(line));
       set((state) => {
-        state.breakpointLines.forEach((line) => {
-          get().interpreter.removeBreakPoint(line);
-        });
-        state.breakpointLines.clear();
+        state.breakpointLines = [];
       });
     },
 
@@ -327,18 +331,19 @@ export const useAppStore = create<AppStore>()(
     // ============================================================================
 
     reset: () => {
+      const interpreter = createSeededInterpreter();
       set(() => ({
         program: INITIAL_PROGRAM,
         programHistory: [INITIAL_PROGRAM],
         historyIndex: 0,
-        interpreter: new FANUCInterpreter(),
-        interpreterState: new FANUCInterpreter().getState(),
+        interpreter,
+        interpreterState: interpreter.getState(),
         executionResult: null,
         isRunning: false,
         isPaused: false,
         executionLogs: [],
         selectedTab: 'editor',
-        breakpointLines: new Set(),
+        breakpointLines: [],
         showBreakpointPanel: false,
         lastError: null,
         errorTimestamp: null,
