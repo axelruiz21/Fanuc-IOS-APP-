@@ -5,10 +5,34 @@
  */
 
 import { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from './index';
 import { PersistedState } from './types';
 
 const STORAGE_KEY = 'fanuc-mvp-state';
+
+async function writeItem(key: string, value: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  }
+}
+
+async function readItem(key: string): Promise<string | null> {
+  try {
+    const fromNative = await AsyncStorage.getItem(key);
+    if (fromNative != null) return fromNative;
+  } catch {
+    // fall through
+  }
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(key);
+  }
+  return null;
+}
 
 /**
  * Save state to AsyncStorage
@@ -16,18 +40,14 @@ const STORAGE_KEY = 'fanuc-mvp-state';
 export async function saveState(): Promise<void> {
   try {
     const state = useAppStore.getState();
-    
+
     const persistedState: PersistedState = {
       program: state.program,
       positions: state.interpreterState.positions,
-      breakpointLines: Array.from(state.breakpointLines),
+      breakpointLines: state.breakpointLines,
     };
 
-    // Note: In React Native, use AsyncStorage
-    // For web/testing, we'll use localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
-    }
+    await writeItem(STORAGE_KEY, JSON.stringify(persistedState));
   } catch (err) {
     console.error('Failed to save state:', err);
   }
@@ -38,11 +58,9 @@ export async function saveState(): Promise<void> {
  */
 export async function loadState(): Promise<PersistedState | null> {
   try {
-    if (typeof window !== 'undefined') {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (data) {
-        return JSON.parse(data) as PersistedState;
-      }
+    const data = await readItem(STORAGE_KEY);
+    if (data) {
+      return JSON.parse(data) as PersistedState;
     }
     return null;
   } catch (err) {
@@ -94,15 +112,15 @@ export function useAutoSaveState(debounceMs: number = 1000) {
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
-    const unsubscribe = useAppStore.subscribe(
-      (state) => state.program,
-      () => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          saveState();
-        }, debounceMs);
+    const unsubscribe = useAppStore.subscribe((state, prev) => {
+      if (state.program === prev.program && state.breakpointLines === prev.breakpointLines) {
+        return;
       }
-    );
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        void saveState();
+      }, debounceMs);
+    });
 
     return () => {
       clearTimeout(timeoutId);
@@ -116,8 +134,12 @@ export function useAutoSaveState(debounceMs: number = 1000) {
  */
 export async function clearPersistedState(): Promise<void> {
   try {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
   } catch (err) {
     console.error('Failed to clear persisted state:', err);
