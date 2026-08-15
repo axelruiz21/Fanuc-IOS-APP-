@@ -486,8 +486,13 @@ export class FANUCInterpreter {
       if (line[i] === ';') break;
 
       // Numbers
-      if (/\d/.test(line[i]) || (line[i] === '.' && /\d/.test(line[i + 1]))) {
+      if (
+        /\d/.test(line[i]) ||
+        (line[i] === '.' && /\d/.test(line[i + 1] ?? '')) ||
+        (line[i] === '-' && /\d/.test(line[i + 1] ?? ''))
+      ) {
         let numStr = '';
+        if (line[i] === '-') numStr += line[i++];
         while (i < line.length && (/\d/.test(line[i]) || line[i] === '.')) {
           numStr += line[i++];
         }
@@ -498,10 +503,10 @@ export class FANUCInterpreter {
       // Identifiers and keywords
       if (/[a-zA-Z_]/.test(line[i])) {
         let ident = '';
-        while (i < line.length && /[a-zA-Z0-9_\[\]]/.test(line[i])) {
+        while (i < line.length && /[a-zA-Z0-9_]/.test(line[i])) {
           ident += line[i++];
         }
-        const isCommand = ['MOVE', 'J', 'L', 'DOUT', 'WAIT', 'IF', 'FOR', 'END', 'ENDIF', 'ENDFOR', 'THEN', 'ELSE', 'CALL', 'ON', 'OFF', 'TO'].includes(ident.toUpperCase());
+        const isCommand = ['MOVE', 'J', 'L', 'DOUT', 'WAIT', 'IF', 'FOR', 'END', 'ENDIF', 'ENDFOR', 'THEN', 'ELSE', 'CALL', 'ON', 'OFF', 'TO', 'DIN'].includes(ident.toUpperCase());
         tokens.push({ type: isCommand ? 'COMMAND' : 'IDENTIFIER', value: ident, lineNumber: 0 });
         continue;
       }
@@ -542,6 +547,9 @@ export class FANUCInterpreter {
         const closeBracket = tokens[startIdx + 3];
         if (numToken?.type === 'NUMBER' && closeBracket?.value === ']') {
           const index = parseInt(numToken.value, 10);
+          if (index < 1 || index > 100) {
+            throw new Error(`Position index must be 1-100, got ${index}`);
+          }
           return { index, nextIdx: startIdx + 4 };
         }
       }
@@ -561,6 +569,9 @@ export class FANUCInterpreter {
         const closeBracket = tokens[startIdx + 3];
         if (numToken?.type === 'NUMBER' && closeBracket?.value === ']') {
           const index = parseInt(numToken.value, 10);
+          if (index < 1 || index > 100) {
+            throw new Error(`PR index must be 1-100, got ${index}`);
+          }
           return { index, nextIdx: startIdx + 4 };
         }
       }
@@ -585,6 +596,9 @@ export class FANUCInterpreter {
       const closeBracket = tokens[startIdx + 3];
       if (numToken?.type === 'NUMBER' && closeBracket?.value === ']') {
         const index = parseInt(numToken.value, 10);
+        if (index < 1 || index > 32) {
+          throw new Error(`I/O index must be 1-32, got ${index}`);
+        }
         return { type: ioType, index, nextIdx: startIdx + 4 };
       }
     }
@@ -668,6 +682,9 @@ export class FANUCInterpreter {
       }
 
       const outputIndex = parseInt(numToken.value, 10);
+      if (outputIndex < 1 || outputIndex > 32) {
+        throw new Error(`DO index must be 1-32, got ${outputIndex}`);
+      }
       const eqIdx = tokens.findIndex((t, i) => i > closeBracketIdx && t.value === '=');
       if (eqIdx === -1) throw new Error('Expected =');
 

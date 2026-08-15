@@ -10,3 +10,19 @@ describe('FANUCInterpreter smoke', () => {
     expect(result.state.currentPosition?.x).toBe(100);
   });
 });
+
+describe('tokenization via public commands', () => {
+  it('parses DOUT OT[1]=ON', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('DOUT OT[1]=ON\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.io.DO[1]).toBe(true);
+  });
+
+  it('rejects P[0]', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('MOVE P[0]\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/1-100|index/i);
+  });
+});
