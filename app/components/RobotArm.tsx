@@ -5,7 +5,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -97,7 +97,7 @@ const RobotArmModel: React.FC<{ position?: Position | null }> = ({ position }) =
 
   // Convert position to rotations for 4-link arm
   // Simplified forward kinematics
-  const calculateJointAngles = (pos?: Position) => {
+  const calculateJointAngles = (pos?: Position | null) => {
     if (!pos) {
       return {
         theta1: 0,
@@ -234,7 +234,6 @@ const RobotScene: React.FC<{ position?: Position | null }> = ({ position }) => {
  */
 export const RobotArmViewer: React.FC<RobotArmProps> = ({
   position,
-  animated = true,
 }) => {
   return (
     <Canvas

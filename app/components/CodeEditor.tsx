@@ -4,14 +4,13 @@
  * Phase 2: UI Components
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   TextInput,
   StyleSheet,
   ScrollView,
   Text,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -42,25 +41,16 @@ const LineNumbers: React.FC<LineNumberProps> = ({ lineCount }) => {
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
   onChange,
-  onSave,
   readOnly = false,
 }) => {
   const lineCount = value.split('\n').length;
-  const [cursorPosition, setCursorPosition] = useState(0);
 
   const handleChange = useCallback(
     (text: string) => {
       onChange(text);
-      setCursorPosition(text.length);
     },
     [onChange]
   );
-
-  const handleSave = useCallback(() => {
-    if (onSave) {
-      onSave(value);
-    }
-  }, [value, onSave]);
 
   return (
     <KeyboardAvoidingView
@@ -82,12 +72,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               multiline
               editable={!readOnly}
               placeholderTextColor="#999"
-              placeholder="; Enter FANUC program here&#10;&#10;MOVE P[1]&#10;DOUT OT[1]=ON&#10;WAIT 1.0&#10;END"
+              placeholder={'; Enter FANUC program here\n\nMOVE P[1]\nDOUT OT[1]=ON\nWAIT 1.0\nEND'}
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect={false}
-              fontFamily={Platform.OS === 'ios' ? 'Menlo' : 'monospace'}
-              fontSize={12}
               scrollEnabled={false}
             />
           </View>

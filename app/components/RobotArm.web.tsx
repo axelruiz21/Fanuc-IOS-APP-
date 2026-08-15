@@ -7,9 +7,8 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
-  Canvas as SkiaCanvas,
-  Dimensions,
 } from 'react-native';
 
 export interface Position {
@@ -157,9 +156,7 @@ const Canvas2DRobot = React.lazy(() =>
  */
 export const RobotArmViewer: React.FC<RobotArmProps> = ({
   position,
-  animated = true,
 }) => {
-  const windowDimensions = Dimensions.get('window');
   const isWeb = typeof document !== 'undefined';
 
   if (isWeb) {
@@ -197,9 +194,9 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.fallback}>
-        <view style={styles.fallbackText}>
+        <Text style={styles.fallbackText}>
           3D rendering not available on this platform
-        </view>
+        </Text>
       </View>
     </View>
   );
