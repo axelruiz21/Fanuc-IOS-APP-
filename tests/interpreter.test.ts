@@ -114,3 +114,33 @@ describe('IF/ELSE', () => {
     expect(result.state.registers.PR[2]).toBe(2);
   });
 });
+
+describe('expressions and snapshots', () => {
+  it('adds two registers', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('PR[1]=50\nPR[2]=30\nPR[3]=PR[1]+PR[2]\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[3]).toBe(80);
+  });
+
+  it('preserves breakpoints in getState', () => {
+    const vm = new FANUCInterpreter();
+    vm.addBreakPoint(4);
+    expect(vm.getState().breakPoints.has(4)).toBe(true);
+  });
+
+  it('rejects CALL as unimplemented', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('CALL LESSON2\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not implemented/i);
+  });
+
+  it('reads J speed after the position ref', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    const result = await vm.execute('J P[1] 40%\nEND');
+    expect(result.success).toBe(true);
+    expect(result.executionLog.join('\n')).toMatch(/40%/);
+  });
+});

@@ -231,7 +231,19 @@ export class FANUCInterpreter {
    * Get current state
    */
   public getState(): InterpreterState {
-    return JSON.parse(JSON.stringify(this.state));
+    return {
+      positions: Object.fromEntries(
+        Object.entries(this.state.positions).map(([k, v]) => [k, { ...v }])
+      ),
+      registers: { PR: { ...this.state.registers.PR } },
+      io: { DI: { ...this.state.io.DI }, DO: { ...this.state.io.DO } },
+      currentPosition: this.state.currentPosition ? { ...this.state.currentPosition } : null,
+      programCounter: this.state.programCounter,
+      callStack: [...this.state.callStack],
+      isRunning: this.state.isRunning,
+      isPaused: this.state.isPaused,
+      breakPoints: new Set(this.state.breakPoints),
+    };
   }
 
   /**
@@ -697,8 +709,8 @@ export class FANUCInterpreter {
     if (!this.context) throw new Error('No execution context');
 
     try {
-      const { index } = this.parsePositionRef(tokens, 1);
-      const speedToken = tokens[3];
+      const { index, nextIdx } = this.parsePositionRef(tokens, 1);
+      const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 100;
 
       const position = this.state.positions[index];
@@ -716,8 +728,8 @@ export class FANUCInterpreter {
     if (!this.context) throw new Error('No execution context');
 
     try {
-      const { index } = this.parsePositionRef(tokens, 1);
-      const speedToken = tokens[3];
+      const { index, nextIdx } = this.parsePositionRef(tokens, 1);
+      const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 500;
 
       const position = this.state.positions[index];
@@ -864,15 +876,7 @@ export class FANUCInterpreter {
   private executeCALL(tokens: Token[], lineNumber: number): void {
     if (!this.context) throw new Error('No execution context');
 
-    try {
-      const progName = tokens[1]?.value;
-      if (!progName) throw new Error('Expected program name');
-
-      this.state.callStack.push(this.state.programCounter);
-      this.context.log.push(`[${lineNumber}] CALL ${progName} (not implemented in MVP)`);
-    } catch (err) {
-      throw new Error(`CALL: ${(err as Error).message}`);
-    }
+    throw new Error('CALL is not implemented in this MVP');
   }
 
   /**
@@ -948,29 +952,21 @@ export class FANUCInterpreter {
     const trimmed = expr.trim();
 
     // Direct number
-    if (/^\d+\.?\d*$/.test(trimmed)) {
+    if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
       return parseFloat(trimmed);
     }
 
-    // Simple arithmetic PR[n]+value, PR[n]-value, etc.
-    const arithMatch = trimmed.match(/PR\[(\d+)\]\s*([\+\-\*\/])\s*(\d+)/i);
-    if (arithMatch) {
-      const regValue = this.state.registers.PR[parseInt(arithMatch[1], 10)] ?? 0;
-      const operator = arithMatch[2];
-      const value = parseInt(arithMatch[3], 10);
+    const twoPr = trimmed.match(/PR\[(\d+)\]\s*([+\-*/])\s*PR\[(\d+)\]/i);
+    if (twoPr) {
+      const left = this.state.registers.PR[parseInt(twoPr[1], 10)] ?? 0;
+      const right = this.state.registers.PR[parseInt(twoPr[3], 10)] ?? 0;
+      return this.applyArith(left, twoPr[2], right);
+    }
 
-      switch (operator) {
-        case '+':
-          return regValue + value;
-        case '-':
-          return regValue - value;
-        case '*':
-          return regValue * value;
-        case '/':
-          return regValue / value;
-        default:
-          return 0;
-      }
+    const onePr = trimmed.match(/PR\[(\d+)\]\s*([+\-*/])\s*(-?\d+(?:\.\d+)?)/i);
+    if (onePr) {
+      const left = this.state.registers.PR[parseInt(onePr[1], 10)] ?? 0;
+      return this.applyArith(left, onePr[2], parseFloat(onePr[3]));
     }
 
     // PR[n] reference
@@ -980,6 +976,15 @@ export class FANUCInterpreter {
     }
 
     throw new Error(`Cannot evaluate expression: ${expr}`);
+  }
+
+  private applyArith(left: number, op: string, right: number): number {
+    if (op === '/' && right === 0) throw new Error('Division by zero');
+    if (op === '+') return left + right;
+    if (op === '-') return left - right;
+    if (op === '*') return left * right;
+    if (op === '/') return left / right;
+    throw new Error(`Unknown operator ${op}`);
   }
 }
 
