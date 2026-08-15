@@ -20,6 +20,25 @@ import { ExecutionControls } from './components/ExecutionControls';
 import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
+import { RobotArmViewer } from './components/RobotArm';
+import type { InterpreterState } from './utils/interpreter';
+
+function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
+  if (Platform.OS === 'web') {
+    return (
+      <RobotArmViewer
+        joints={interpreterState.currentJoints}
+        currentPosition={interpreterState.currentPosition}
+      />
+    );
+  }
+  return (
+    <Viewport3D
+      currentPosition={interpreterState.currentPosition}
+      isLoading={false}
+    />
+  );
+}
 
 /**
  * Landscape layout: Editor + 3D on left, IO + Console on right
@@ -83,10 +102,7 @@ const LandscapeLayout: React.FC = () => {
 
         {/* 3D Viewport */}
         <View style={styles.viewportSection}>
-          <Viewport3D
-            currentPosition={interpreterState.currentPosition}
-            isLoading={false}
-          />
+          <SceneViewport interpreterState={interpreterState} />
         </View>
       </View>
 
@@ -187,10 +203,7 @@ const PortraitLayout: React.FC = () => {
 
       {/* 3D Viewport */}
       <View style={styles.portraitViewport}>
-        <Viewport3D
-          currentPosition={interpreterState.currentPosition}
-          isLoading={false}
-        />
+        <SceneViewport interpreterState={interpreterState} />
       </View>
 
       {/* Controls */}

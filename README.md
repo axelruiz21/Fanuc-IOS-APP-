@@ -2,7 +2,7 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** Phase 1 interpreter is the engine; repair required (tokenizer, control flow, tests). CALL is not implemented. Viewport is 2D.
+**Status:** MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. CALL is not implemented.
 
 ---
 
