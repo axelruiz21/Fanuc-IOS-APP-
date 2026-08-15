@@ -288,6 +288,7 @@ const styles = StyleSheet.create({
   },
   viewportSection: {
     flex: 0.8,
+    minHeight: 240,
   },
 
   // Portrait layout
@@ -300,6 +301,7 @@ const styles = StyleSheet.create({
   },
   portraitViewport: {
     flex: 0.8,
+    minHeight: 240,
   },
   portraitIO: {
     flex: 0.8,
