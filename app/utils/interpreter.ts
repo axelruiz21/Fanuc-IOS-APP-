@@ -102,6 +102,7 @@ interface ExecutionContext {
   pauseUntil?: number;
   didJump: boolean;
   loopStack: LoopFrame[];
+  /** Resume must execute the paused line; skip the breakpoint check once. */
   skipBreakpointOnce?: boolean;
 }
 
@@ -475,7 +476,11 @@ export class FANUCInterpreter {
         this.context.stopExecution = true;
         break;
       case 'ENDIF':
+        log.push(`[${lineNumber}] ENDIF`);
+        break;
       case 'ENDFOR':
+        log.push(`[${lineNumber}] ENDFOR`);
+        break;
       case 'CALL':
         this.executeCALL(tokens, lineNumber);
         break;

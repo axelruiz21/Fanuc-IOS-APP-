@@ -37,6 +37,14 @@ describe('run loop', () => {
     expect(result.executionLog.some((l) => l.includes('[1] MOVE'))).toBe(true);
   });
 
+  it('does not throw Unknown/CALL on ENDIF', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('PR[1]=1\nENDIF\nEND');
+    expect(result.success).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(result.executionLog.some((l) => l.includes('ENDIF'))).toBe(true);
+  });
+
   it('continue after breakpoint does not restart from line 0', async () => {
     const vm = new FANUCInterpreter();
     vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
