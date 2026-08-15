@@ -873,7 +873,7 @@ export class FANUCInterpreter {
   /**
    * CALL program_name
    */
-  private executeCALL(tokens: Token[], lineNumber: number): void {
+  private executeCALL(_tokens: Token[], _lineNumber: number): void {
     if (!this.context) throw new Error('No execution context');
 
     throw new Error('CALL is not implemented in this MVP');
