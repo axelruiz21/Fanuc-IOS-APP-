@@ -485,9 +485,20 @@ export class FANUCInterpreter {
       case 'ENDIF':
         log.push(`[${lineNumber}] ENDIF`);
         break;
-      case 'ENDFOR':
+      case 'ENDFOR': {
+        const frame = this.context.loopStack[this.context.loopStack.length - 1];
+        if (!frame) throw new Error('ENDFOR without FOR');
+        frame.current += 1;
+        this.state.registers.PR[frame.registerIndex] = frame.current;
+        if (frame.current <= frame.end) {
+          this.state.programCounter = frame.bodyStart;
+          this.context.didJump = true;
+        } else {
+          this.context.loopStack.pop();
+        }
         log.push(`[${lineNumber}] ENDFOR`);
         break;
+      }
       case 'CALL':
         this.executeCALL(tokens, lineNumber);
         break;
@@ -576,14 +587,38 @@ export class FANUCInterpreter {
     if (token.value.toUpperCase() === 'P') {
       const bracketToken = tokens[startIdx + 1];
       if (bracketToken?.value === '[') {
-        const numToken = tokens[startIdx + 2];
+        const refToken = tokens[startIdx + 2];
         const closeBracket = tokens[startIdx + 3];
-        if (numToken?.type === 'NUMBER' && closeBracket?.value === ']') {
-          const index = parseInt(numToken.value, 10);
+        if (refToken?.type === 'NUMBER' && closeBracket?.value === ']') {
+          const index = parseInt(refToken.value, 10);
           if (index < 1 || index > 100) {
             throw new Error(`Position index must be 1-100, got ${index}`);
           }
           return { index, nextIdx: startIdx + 4 };
+        }
+        if (
+          (refToken?.type === 'IDENTIFIER' || refToken?.type === 'COMMAND') &&
+          refToken.value.toUpperCase() === 'J' &&
+          closeBracket?.value === ']'
+        ) {
+          const index = this.state.registers.PR[1] ?? 1;
+          if (index < 1 || index > 100) {
+            throw new Error(`Position index must be 1-100, got ${index}`);
+          }
+          return { index, nextIdx: startIdx + 4 };
+        }
+        if (refToken?.value.toUpperCase() === 'PR') {
+          const innerBracket = tokens[startIdx + 3];
+          const numToken = tokens[startIdx + 4];
+          const outerClose = tokens[startIdx + 5];
+          if (innerBracket?.value === '[' && numToken?.type === 'NUMBER' && outerClose?.value === ']') {
+            const regIndex = parseInt(numToken.value, 10);
+            const index = this.state.registers.PR[regIndex] ?? 1;
+            if (index < 1 || index > 100) {
+              throw new Error(`Position index must be 1-100, got ${index}`);
+            }
+            return { index, nextIdx: startIdx + 6 };
+          }
         }
       }
     }
@@ -803,27 +838,24 @@ export class FANUCInterpreter {
   /**
    * FOR J=start TO end ... ENDFOR
    */
-  private executeFOR(tokens: Token[], lineNumber: number, fullLine: string): void {
+  private executeFOR(_tokens: Token[], lineNumber: number, fullLine: string): void {
     if (!this.context) throw new Error('No execution context');
-
-    try {
-      const forMatch = fullLine.match(/FOR\s+(\w+)\s*=\s*(\d+)\s+TO\s+(\d+)/i);
-      if (!forMatch) throw new Error('Invalid FOR syntax');
-
-      const loopVar = forMatch[1].toUpperCase();
-      const start = parseInt(forMatch[2], 10);
-      const end = parseInt(forMatch[3], 10);
-
-      this.context.log.push(`[${lineNumber}] FOR ${loopVar}=${start} TO ${end}`);
-
-      // Store loop state in register (if it's a PR reference)
-      if (loopVar.startsWith('PR') || loopVar === 'J') {
-        const regIdx = parseInt(loopVar.match(/\d+/) ? loopVar.match(/\d+/)![0] : '1', 10);
-        this.state.registers.PR[regIdx] = start;
-      }
-    } catch (err) {
-      throw new Error(`FOR: ${(err as Error).message}`);
-    }
+    const forMatch = fullLine.match(/FOR\s+(\w+)\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
+    if (!forMatch) throw new Error('Invalid FOR syntax');
+    const variable = forMatch[1].toUpperCase();
+    const start = parseInt(forMatch[2], 10);
+    const end = parseInt(forMatch[3], 10);
+    const registerIndex = variable === 'J' || !/\d/.test(variable) ? 1 : parseInt(variable.replace(/\D/g, ''), 10);
+    this.state.registers.PR[registerIndex] = start;
+    this.context.loopStack.push({
+      headerLine: lineNumber,
+      bodyStart: lineNumber + 1,
+      variable,
+      current: start,
+      end,
+      registerIndex,
+    });
+    this.context.log.push(`[${lineNumber}] FOR ${variable}=${start} TO ${end}`);
   }
 
   /**
@@ -920,12 +952,6 @@ export class FANUCInterpreter {
       return parseFloat(trimmed);
     }
 
-    // PR[n] reference
-    const prMatch = trimmed.match(/PR\[(\d+)\]/i);
-    if (prMatch) {
-      return this.state.registers.PR[parseInt(prMatch[1], 10)] ?? 0;
-    }
-
     // Simple arithmetic PR[n]+value, PR[n]-value, etc.
     const arithMatch = trimmed.match(/PR\[(\d+)\]\s*([\+\-\*\/])\s*(\d+)/i);
     if (arithMatch) {
@@ -945,6 +971,12 @@ export class FANUCInterpreter {
         default:
           return 0;
       }
+    }
+
+    // PR[n] reference
+    const prMatch = trimmed.match(/PR\[(\d+)\]/i);
+    if (prMatch) {
+      return this.state.registers.PR[parseInt(prMatch[1], 10)] ?? 0;
     }
 
     throw new Error(`Cannot evaluate expression: ${expr}`);

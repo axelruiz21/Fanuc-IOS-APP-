@@ -80,6 +80,21 @@ describe('WAIT', () => {
   });
 });
 
+describe('FOR', () => {
+  it('iterates and supports P[J]', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 10, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 20, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(3, { x: 30, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    const result = await vm.execute(
+      'PR[2]=0\nFOR J=1 TO 3\nPR[2]=PR[2]+1\nMOVE P[J]\nENDFOR\nEND'
+    );
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(3);
+    expect(result.state.currentPosition?.x).toBe(30);
+  });
+});
+
 describe('IF/ELSE', () => {
   it('runs THEN and skips ELSE when true', async () => {
     const vm = new FANUCInterpreter();
