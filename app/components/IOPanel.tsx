@@ -74,7 +74,7 @@ const IOItem: React.FC<IOItemProps> = ({
     <TouchableOpacity
       style={[
         styles.ioItem,
-        value && styles.ioItemActive,
+        value ? styles.ioItemActive : undefined,
         !isInput && styles.ioItemOutput,
         isInput && !onToggle && styles.ioItemDisabled,
       ]}
@@ -85,7 +85,7 @@ const IOItem: React.FC<IOItemProps> = ({
       <View
         style={[
           styles.ioIndicator,
-          value && styles.ioIndicatorActive,
+          value ? styles.ioIndicatorActive : undefined,
         ]}
       />
     </TouchableOpacity>

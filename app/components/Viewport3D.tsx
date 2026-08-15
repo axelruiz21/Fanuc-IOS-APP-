@@ -4,13 +4,12 @@
  * Phase 2 / Phase 4: 3D Rendering Integration
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
   Text,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 
 export interface Position {
@@ -31,10 +30,18 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   currentPosition,
   isLoading = false,
 }) => {
-  const windowWidth = Dimensions.get('window').width;
-  
-  // Placeholder visualization: simple 2D representation
-  // Phase 4 will upgrade this to Three.js with react-three-fiber
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const centerX = size.width / 2;
+  const centerY = size.height / 2;
+  const radius = Math.min(size.width, size.height) * 0.35;
+  const maxCoord = 400;
+  const projectedX = currentPosition
+    ? centerX + (currentPosition.x / maxCoord) * radius
+    : centerX;
+  const projectedY = currentPosition
+    ? centerY - (currentPosition.y / maxCoord) * radius
+    : centerY;
+
   const renderCoordinateDisplay = () => {
     if (!currentPosition) {
       return (
@@ -44,13 +51,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       );
     }
 
-    const maxCoord = 400;
-    const centerX = windowWidth / 2 - 70;
-    const centerY = 150;
-
-    // Simple 2D projection (XY plane)
-    const projectedX = centerX + (currentPosition.x / maxCoord) * 100;
-    const projectedY = centerY - (currentPosition.y / maxCoord) * 100;
+    if (size.width === 0 || size.height === 0) {
+      return null;
+    }
 
     return (
       <View style={styles.projectionContainer}>
@@ -58,7 +61,15 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         <View style={styles.grid} />
 
         {/* Origin */}
-        <View style={styles.origin}>
+        <View
+          style={[
+            styles.origin,
+            {
+              left: centerX,
+              top: centerY,
+            },
+          ]}
+        >
           <Text style={styles.originLabel}>O</Text>
         </View>
 
@@ -102,7 +113,13 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         {isLoading && <Text style={styles.loadingText}>Rendering...</Text>}
       </View>
 
-      <View style={styles.viewportArea}>
+      <View
+        style={styles.viewportArea}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setSize({ width, height });
+        }}
+      >
         {renderCoordinateDisplay()}
       </View>
 
@@ -118,10 +135,6 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           </View>
         </ScrollView>
       )}
-
-      <Text style={styles.phaseNote}>
-        Phase 4: Three.js 3D rendering will replace this placeholder
-      </Text>
     </View>
   );
 };
@@ -182,7 +195,7 @@ const styles = StyleSheet.create({
   },
   projectionContainer: {
     width: '100%',
-    height: 200,
+    height: '100%',
     position: 'relative',
     backgroundColor: '#f0f0f0',
   },
@@ -200,8 +213,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     justifyContent: 'center',
     alignItems: 'center',
-    left: '50%',
-    top: '50%',
     marginLeft: -12,
     marginTop: -12,
     zIndex: 10,
@@ -226,7 +237,6 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#9C27B0',
     zIndex: 5,
-    transformOrigin: '0% 50%',
   },
   coordinatesPanel: {
     backgroundColor: '#f5f5f5',
@@ -259,14 +269,5 @@ const styles = StyleSheet.create({
   coordinateUnit: {
     fontSize: 10,
     color: '#999',
-  },
-  phaseNote: {
-    fontSize: 10,
-    color: '#999',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontStyle: 'italic',
-    backgroundColor: '#fafafa',
-    textAlign: 'center',
   },
 });

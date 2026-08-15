@@ -4,14 +4,14 @@
  * Phases 2-4: Complete Integration
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   StyleSheet,
   SafeAreaView,
-  Dimensions,
   Platform,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { useAppStore } from './store';
 import { useRestorePersistedState, useAutoSaveState } from './store/persistence';
@@ -20,10 +20,6 @@ import { ExecutionControls } from './components/ExecutionControls';
 import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
-
-const screenDimensions = Dimensions.get('window');
-const isLandscape =
-  screenDimensions.width > screenDimensions.height;
 
 /**
  * Landscape layout: Editor + 3D on left, IO + Console on right
@@ -89,7 +85,7 @@ const LandscapeLayout: React.FC = () => {
         <View style={styles.viewportSection}>
           <Viewport3D
             currentPosition={interpreterState.currentPosition}
-            isLoading={isRunning}
+            isLoading={false}
           />
         </View>
       </View>
@@ -102,6 +98,7 @@ const LandscapeLayout: React.FC = () => {
           isPaused={isPaused}
           onPlay={handlePlay}
           onPause={handlePause}
+          onResume={handleResume}
           onStep={handleStep}
           onReset={handleReset}
           onBreakpoint={handleBreakpoint}
@@ -188,12 +185,21 @@ const PortraitLayout: React.FC = () => {
         />
       </View>
 
+      {/* 3D Viewport */}
+      <View style={styles.portraitViewport}>
+        <Viewport3D
+          currentPosition={interpreterState.currentPosition}
+          isLoading={false}
+        />
+      </View>
+
       {/* Controls */}
       <ExecutionControls
         isRunning={isRunning}
         isPaused={isPaused}
         onPlay={handlePlay}
         onPause={handlePause}
+        onResume={handleResume}
         onStep={handleStep}
         onReset={handleReset}
         onBreakpoint={handleBreakpoint}
@@ -229,21 +235,17 @@ const PortraitLayout: React.FC = () => {
  * Main App Component
  */
 export default function App() {
-  // Restore persisted state on mount
   useRestorePersistedState();
-
-  // Auto-save state on changes
   useAutoSaveState(1000);
-
-  // Choose layout based on orientation
-  const layout = isLandscape ? <LandscapeLayout /> : <PortraitLayout />;
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {Platform.OS === 'android' && (
         <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
       )}
-      {layout}
+      {isLandscape ? <LandscapeLayout /> : <PortraitLayout />}
     </SafeAreaView>
   );
 }
@@ -282,6 +284,9 @@ const styles = StyleSheet.create({
   },
   portraitEditor: {
     flex: 1.5,
+  },
+  portraitViewport: {
+    flex: 0.8,
   },
   portraitIO: {
     flex: 0.8,

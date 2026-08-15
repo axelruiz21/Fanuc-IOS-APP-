@@ -73,16 +73,6 @@ interface Token {
 }
 
 /**
- * Parsed AST node
- */
-interface ASTNode {
-  type: string;
-  lineNumber: number;
-  content?: string;
-  [key: string]: any;
-}
-
-/**
  * Command execution context
  */
 interface LoopFrame {
@@ -635,28 +625,6 @@ export class FANUCInterpreter {
       }
     }
     throw new Error(`Invalid position reference at token ${startIdx}`);
-  }
-
-  /**
-   * Parse register reference PR[n]
-   */
-  private parseRegisterRef(tokens: Token[], startIdx: number): { index: number; nextIdx: number } {
-    const token = tokens[startIdx];
-    if (token.value.toUpperCase() === 'PR') {
-      const bracketToken = tokens[startIdx + 1];
-      if (bracketToken?.value === '[') {
-        const numToken = tokens[startIdx + 2];
-        const closeBracket = tokens[startIdx + 3];
-        if (numToken?.type === 'NUMBER' && closeBracket?.value === ']') {
-          const index = parseInt(numToken.value, 10);
-          if (index < 1 || index > 100) {
-            throw new Error(`PR index must be 1-100, got ${index}`);
-          }
-          return { index, nextIdx: startIdx + 4 };
-        }
-      }
-    }
-    throw new Error(`Invalid register reference at token ${startIdx}`);
   }
 
   /**

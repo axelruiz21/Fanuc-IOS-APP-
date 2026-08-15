@@ -21,9 +21,10 @@ export interface ExecutionControlsProps {
   onPause: () => void;
   onStep: () => void;
   onReset: () => void;
+  onResume?: () => void;
   onBreakpoint?: () => void;
   status?: string;
-  errorMessage?: string;
+  errorMessage?: string | null;
 }
 
 export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
@@ -33,17 +34,18 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
   onPause,
   onStep,
   onReset,
+  onResume,
   onBreakpoint,
   status = 'Ready',
   errorMessage,
 }) => {
   const handlePlayPress = useCallback(() => {
     if (isPaused) {
-      onPlay();
+      (onResume ?? onPlay)();
     } else if (!isRunning) {
       onPlay();
     }
-  }, [isPaused, isRunning, onPlay]);
+  }, [isPaused, isRunning, onPlay, onResume]);
 
   return (
     <View style={styles.container}>
@@ -68,8 +70,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
             </>
           )}
         </View>
-        {errorMessage && (
-          <Text style={styles.errorText} numberOfLines={1}>
+        {!!errorMessage && (
+          <Text style={styles.errorText} numberOfLines={3}>
             {errorMessage}
           </Text>
         )}
