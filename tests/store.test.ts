@@ -41,6 +41,42 @@ describe('useAppStore', () => {
     expect(s.breakpointLines).toContain(3);
     expect(s.interpreter.getState().breakPoints.has(3)).toBe(true);
   });
+
+  it('loadLesson sets the unreachable program without wiping P[10]', () => {
+    useAppStore.getState().loadLesson('unreachable');
+    const s = useAppStore.getState();
+    expect(s.program).toMatch(/MOVE P\[10\]/);
+    expect(s.interpreterState.positions[10].x).toBe(2000);
+  });
+
+  it('teaches the current pose into P[3] then MOVE uses it', async () => {
+    await useAppStore.getState().runProgram();
+    const taught = useAppStore.getState().interpreterState.currentPosition;
+    expect(taught).not.toBeNull();
+
+    useAppStore.getState().teachCurrentPosition(3);
+    useAppStore.getState().setProgram('MOVE P[3]\nEND');
+    await useAppStore.getState().runProgram();
+
+    const s = useAppStore.getState();
+    expect(s.lastError).toBeNull();
+    expect(s.interpreterState.currentPosition).toEqual(taught);
+  });
+
+  it('teachCurrentPosition errors when there is no current pose', () => {
+    useAppStore.getState().teachCurrentPosition(4);
+    expect(useAppStore.getState().lastError).toMatch(/No current pose/i);
+  });
+
+  it('updates programCounter while WAIT is running', async () => {
+    useAppStore.getState().setProgram('WAIT 0.15\nEND');
+    const run = useAppStore.getState().runProgram();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(useAppStore.getState().isRunning).toBe(true);
+    expect(useAppStore.getState().interpreterState.programCounter).toBe(0);
+    await run;
+    expect(useAppStore.getState().isRunning).toBe(false);
+  });
 });
 
 describe('persistence', () => {
@@ -72,5 +108,19 @@ describe('persistence', () => {
 
     expect(useAppStore.getState().interpreterState.positions[10].x).toBe(2000);
     expect(useAppStore.getState().program).toContain('MOVE P[10]');
+  });
+
+  it('saves a taught non-origin P[3]', async () => {
+    useAppStore.getState().definePosition(3, {
+      x: 110,
+      y: 20,
+      z: 400,
+      rx: 180,
+      ry: 0,
+      rz: 0,
+    });
+    await saveState();
+    const loaded = await loadState();
+    expect(loaded?.positions[3]?.x).toBe(110);
   });
 });

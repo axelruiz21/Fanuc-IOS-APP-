@@ -222,6 +222,13 @@ export class FANUCInterpreter {
   }
 
   /**
+   * Clone the in-flight execution log (empty if no program is running).
+   */
+  public getExecutionLog(): string[] {
+    return this.context?.log ? [...this.context.log] : [];
+  }
+
+  /**
    * Get current state
    */
   public getState(): InterpreterState {

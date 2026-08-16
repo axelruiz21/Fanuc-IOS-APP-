@@ -12,6 +12,17 @@ import type { Position } from '../utils/interpreter';
 
 const STORAGE_KEY = 'fanuc-mvp-state';
 
+export function shouldPersistSnapshot(
+  prev: { program: string; breakpointLines: number[]; interpreterState: { positions: unknown } },
+  next: { program: string; breakpointLines: number[]; interpreterState: { positions: unknown } }
+): boolean {
+  return (
+    prev.program !== next.program ||
+    prev.breakpointLines !== next.breakpointLines ||
+    prev.interpreterState.positions !== next.interpreterState.positions
+  );
+}
+
 export function isUnsetPosition(p: Position): boolean {
   return p.x === 0 && p.y === 0 && p.z === 0 && p.rx === 0 && p.ry === 0 && p.rz === 0;
 }
@@ -134,7 +145,7 @@ export function useAutoSaveState(debounceMs: number = 1000) {
     let timeoutId: NodeJS.Timeout;
 
     const unsubscribe = useAppStore.subscribe((state, prev) => {
-      if (state.program === prev.program && state.breakpointLines === prev.breakpointLines) {
+      if (!shouldPersistSnapshot(prev, state)) {
         return;
       }
       clearTimeout(timeoutId);
