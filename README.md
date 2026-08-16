@@ -2,11 +2,13 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. CALL is not implemented.
+**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL is not implemented.
 
 **Run (web):** `npm install && npm run start:web`
 
-**Smoke:** (A) Play the default program and wait >1s (`WAIT 1.0`) — arm jumps P[1] then P[2]. (B) Replace the program with `MOVE P[10]` / `END` and Play — error contains `unreachable`; the arm does not move. P[10] is seeded at 2000 mm for this check.
+**Smoke:** (A) Lesson **1. Reachable MOVE** → Play and wait >1s (`WAIT 1.0`) — arm jumps P[1] then P[2]. (B) Lesson **2. Unreachable MOVE** → Play — error contains `unreachable`; the arm does not move. P[10] is seeded at 2000 mm. Teach: open the **P[]** tab, edit a point, Apply, or Teach current after a successful MOVE. The editor gutter highlights the current line while running, paused, or on error.
+
+If P[10] looks like the origin after a reload: `localStorage.clear()` and restart with `npm run start:web` (add `-- --clear` if Metro is stale).
 
 ---
 
@@ -441,12 +443,9 @@ npm run docs         # Generate documentation
 
 ## 🎉 Status
 
-✅ **Phase 1:** COMPLETE  
-⏳ **Phase 2:** Design phase  
-⏳ **Phase 3:** Pending Phase 2  
-⏳ **Phase 4:** Pending Phase 3  
+Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the web 6-link arm, see illegal MOVE fail. Nested IF/FOR work. CALL is unimplemented. Native 3D is still the 2D viewport.
 
-**Next milestone:** Phase 2 kickoff (2026-02-13)
+**Next:** iOS 3D (same `app/kinematics`), CALL spec, more lessons.
 
 ---
 
