@@ -5,6 +5,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import { displayLineNumber } from '../editor/programCounter';
 import {
   View,
   ScrollView,
@@ -76,8 +77,11 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
       <View style={styles.header}>
         <Text style={styles.title}>Execution Log</Text>
         {currentLineNumber !== undefined && (
-          <Text style={styles.lineCounter}>
-            Line: {currentLineNumber}
+          <Text
+            style={styles.lineCounter}
+            accessibilityLabel={`Current line ${displayLineNumber(currentLineNumber)}`}
+          >
+            Line: {displayLineNumber(currentLineNumber)}
           </Text>
         )}
       </View>

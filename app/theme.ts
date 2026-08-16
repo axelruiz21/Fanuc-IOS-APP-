@@ -1,0 +1,16 @@
+export const theme = {
+  bg: '#121417',
+  panel: '#1c1f24',
+  surface: '#252830',
+  border: '#3a3f48',
+  text: '#e8eaed',
+  muted: '#9aa0a6',
+  accent: '#f5c518',
+  play: '#3d9a5f',
+  pause: '#d0892a',
+  step: '#3b82c4',
+  reset: '#8b5cf6',
+  danger: '#e05a5a',
+  currentLine: '#3d3414',
+  currentLineText: '#f5c518',
+} as const;

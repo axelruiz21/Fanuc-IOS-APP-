@@ -24,15 +24,6 @@ function createSeededInterpreter(): FANUCInterpreter {
 
 const initialInterpreter = createSeededInterpreter();
 
-function pollInterpreter(interpreter: FANUCInterpreter, set: (fn: (state: AppStore) => void) => void): NodeJS.Timeout {
-  return setInterval(() => {
-    set((state) => {
-      state.interpreterState = interpreter.getState();
-      state.executionLogs = interpreter.getExecutionLog();
-    });
-  }, 50);
-}
-
 export const useAppStore = create<AppStore>()(
   immer((set, get) => ({
     // ============================================================================
@@ -133,7 +124,12 @@ export const useAppStore = create<AppStore>()(
       });
 
       const interpreter = get().interpreter;
-      const poll = pollInterpreter(interpreter, set);
+      const poll = setInterval(() => {
+        set((s) => {
+          s.interpreterState = interpreter.getState();
+          s.executionLogs = interpreter.getExecutionLog();
+        });
+      }, 50);
       try {
         const result = await interpreter.execute(get().program);
 
@@ -176,7 +172,12 @@ export const useAppStore = create<AppStore>()(
       });
 
       const interpreter = get().interpreter;
-      const poll = pollInterpreter(interpreter, set);
+      const poll = setInterval(() => {
+        set((s) => {
+          s.interpreterState = interpreter.getState();
+          s.executionLogs = interpreter.getExecutionLog();
+        });
+      }, 50);
       try {
         const result = await interpreter.continue();
 

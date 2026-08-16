@@ -1,10 +1,9 @@
 /**
  * Main Application Component
  * FANUC iOS Teach Pendant MVP
- * Phases 2-4: Complete Integration
  */
 
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -21,6 +20,9 @@ import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
 import { RobotArmViewer } from './components/RobotArm';
+import { LessonPicker } from './components/LessonPicker';
+import { editorHighlightIndex } from './editor/programCounter';
+import { theme } from './theme';
 import type { InterpreterState } from './utils/interpreter';
 
 function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
@@ -40,10 +42,9 @@ function SceneViewport({ interpreterState }: { interpreterState: InterpreterStat
   );
 }
 
-/**
- * Landscape layout: Editor + 3D on left, IO + Console on right
- */
-const LandscapeLayout: React.FC = () => {
+function PendantScreen() {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const {
     program,
     setProgram,
@@ -58,7 +59,17 @@ const LandscapeLayout: React.FC = () => {
     interpreterState,
     lastError,
     addBreakpoint,
+    loadLesson,
+    definePosition,
+    teachCurrentPosition,
   } = useAppStore();
+
+  const highlightActive = isRunning || isPaused || Boolean(lastError);
+  const currentLine = editorHighlightIndex(
+    interpreterState.programCounter,
+    highlightActive,
+    Math.max(program.split('\n').length, 1)
+  );
 
   const handlePlay = useCallback(() => {
     runProgram();
@@ -81,184 +92,105 @@ const LandscapeLayout: React.FC = () => {
   }, [resetExecution]);
 
   const handleBreakpoint = useCallback(() => {
-    const currentLine = interpreterState.programCounter;
-    if (currentLine >= 0) {
-      addBreakpoint(currentLine);
+    const line = interpreterState.programCounter;
+    if (line >= 0) {
+      addBreakpoint(line);
     }
   }, [interpreterState.programCounter, addBreakpoint]);
 
-  return (
-    <View style={styles.landscapeContainer}>
-      {/* Left Panel: Editor + 3D */}
-      <View style={styles.leftPanel}>
-        {/* Editor */}
-        <View style={styles.editorSection}>
-          <CodeEditor
-            value={program}
-            onChange={setProgram}
-            readOnly={isRunning && !isPaused}
-          />
-        </View>
-
-        {/* 3D Viewport */}
-        <View style={styles.viewportSection}>
-          <SceneViewport interpreterState={interpreterState} />
-        </View>
-      </View>
-
-      {/* Right Panel: Controls + IO + Console */}
-      <View style={styles.rightPanel}>
-        {/* Execution Controls */}
-        <ExecutionControls
-          isRunning={isRunning}
-          isPaused={isPaused}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onResume={handleResume}
-          onStep={handleStep}
-          onReset={handleReset}
-          onBreakpoint={handleBreakpoint}
-          status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
-          errorMessage={lastError}
-        />
-
-        {/* IO Panel */}
-        <IOPanel
-          digitalInputs={interpreterState.io.DI}
-          digitalOutputs={interpreterState.io.DO}
-          registers={interpreterState.registers.PR}
-          onDigitalInputChange={(idx, val) => {
-            useAppStore.getState().setDigitalInput(idx, val);
-          }}
-        />
-
-        {/* Execution Console */}
-        <ExecutionConsole
-          logs={executionLogs}
-          currentLineNumber={interpreterState.programCounter}
-          autoScroll={true}
-        />
-      </View>
+  const editor = (
+    <View style={isLandscape ? styles.editorSection : styles.portraitEditor}>
+      <LessonPicker onLoadLesson={loadLesson} />
+      <CodeEditor
+        value={program}
+        onChange={setProgram}
+        readOnly={isRunning && !isPaused}
+        currentLine={currentLine}
+      />
     </View>
   );
-};
 
-/**
- * Portrait layout: Stacked components
- */
-const PortraitLayout: React.FC = () => {
-  const {
-    program,
-    setProgram,
-    isRunning,
-    isPaused,
-    runProgram,
-    pauseExecution,
-    resumeExecution,
-    stepExecution,
-    resetExecution,
-    executionLogs,
-    interpreterState,
-    lastError,
-    addBreakpoint,
-  } = useAppStore();
+  const viewport = (
+    <View style={isLandscape ? styles.viewportSection : styles.portraitViewport}>
+      <SceneViewport interpreterState={interpreterState} />
+    </View>
+  );
 
-  const handlePlay = useCallback(() => {
-    runProgram();
-  }, [runProgram]);
+  const controls = (
+    <ExecutionControls
+      isRunning={isRunning}
+      isPaused={isPaused}
+      onPlay={handlePlay}
+      onPause={handlePause}
+      onResume={handleResume}
+      onStep={handleStep}
+      onReset={handleReset}
+      onBreakpoint={handleBreakpoint}
+      status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
+      errorMessage={lastError}
+    />
+  );
 
-  const handlePause = useCallback(() => {
-    pauseExecution();
-  }, [pauseExecution]);
+  const io = (
+    <IOPanel
+      digitalInputs={interpreterState.io.DI}
+      digitalOutputs={interpreterState.io.DO}
+      registers={interpreterState.registers.PR}
+      onDigitalInputChange={(idx, val) => {
+        useAppStore.getState().setDigitalInput(idx, val);
+      }}
+      positions={interpreterState.positions}
+      currentPosition={interpreterState.currentPosition}
+      onDefinePosition={definePosition}
+      onTeachCurrent={teachCurrentPosition}
+    />
+  );
 
-  const handleResume = useCallback(async () => {
-    await resumeExecution();
-  }, [resumeExecution]);
+  const consolePanel = (
+    <ExecutionConsole
+      logs={executionLogs}
+      currentLineNumber={currentLine ?? undefined}
+      autoScroll={true}
+    />
+  );
 
-  const handleStep = useCallback(async () => {
-    await stepExecution();
-  }, [stepExecution]);
-
-  const handleReset = useCallback(() => {
-    resetExecution();
-  }, [resetExecution]);
-
-  const handleBreakpoint = useCallback(() => {
-    const currentLine = interpreterState.programCounter;
-    if (currentLine >= 0) {
-      addBreakpoint(currentLine);
-    }
-  }, [interpreterState.programCounter, addBreakpoint]);
+  if (isLandscape) {
+    return (
+      <View style={styles.landscapeContainer}>
+        <View style={styles.leftPanel}>
+          {editor}
+          {viewport}
+        </View>
+        <View style={styles.rightPanel}>
+          {controls}
+          <View style={styles.flexFill}>{io}</View>
+          <View style={styles.flexFill}>{consolePanel}</View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.portraitContainer}>
-      {/* Editor */}
-      <View style={styles.portraitEditor}>
-        <CodeEditor
-          value={program}
-          onChange={setProgram}
-          readOnly={isRunning && !isPaused}
-        />
-      </View>
-
-      {/* 3D Viewport */}
-      <View style={styles.portraitViewport}>
-        <SceneViewport interpreterState={interpreterState} />
-      </View>
-
-      {/* Controls */}
-      <ExecutionControls
-        isRunning={isRunning}
-        isPaused={isPaused}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onResume={handleResume}
-        onStep={handleStep}
-        onReset={handleReset}
-        onBreakpoint={handleBreakpoint}
-        status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
-        errorMessage={lastError}
-      />
-
-      {/* IO Panel */}
-      <View style={styles.portraitIO}>
-        <IOPanel
-          digitalInputs={interpreterState.io.DI}
-          digitalOutputs={interpreterState.io.DO}
-          registers={interpreterState.registers.PR}
-          onDigitalInputChange={(idx, val) => {
-            useAppStore.getState().setDigitalInput(idx, val);
-          }}
-        />
-      </View>
-
-      {/* Console */}
-      <View style={styles.portraitConsole}>
-        <ExecutionConsole
-          logs={executionLogs}
-          currentLineNumber={interpreterState.programCounter}
-          autoScroll={true}
-        />
-      </View>
+      {editor}
+      {viewport}
+      {controls}
+      <View style={styles.portraitIO}>{io}</View>
+      <View style={styles.portraitConsole}>{consolePanel}</View>
     </View>
   );
-};
+}
 
-/**
- * Main App Component
- */
 export default function App() {
   useRestorePersistedState();
   useAutoSaveState(1000);
-  const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {Platform.OS === 'android' && (
-        <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
+        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       )}
-      {isLandscape ? <LandscapeLayout /> : <PortraitLayout />}
+      <PendantScreen />
     </SafeAreaView>
   );
 }
@@ -266,14 +198,12 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
   },
-
-  // Landscape layout
   landscapeContainer: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
   },
   leftPanel: {
     flex: 1,
@@ -290,8 +220,9 @@ const styles = StyleSheet.create({
     flex: 0.8,
     minHeight: 240,
   },
-
-  // Portrait layout
+  flexFill: {
+    flex: 1,
+  },
   portraitContainer: {
     flex: 1,
     flexDirection: 'column',

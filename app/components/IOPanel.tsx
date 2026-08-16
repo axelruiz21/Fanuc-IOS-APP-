@@ -13,12 +13,19 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import type { Position } from '../utils/interpreter';
+import { theme } from '../theme';
+import { PositionPanel } from './PositionPanel';
 
 export interface IOPanelProps {
   digitalInputs: Record<number, boolean>;
   digitalOutputs: Record<number, boolean>;
   registers: Record<number, number>;
   onDigitalInputChange?: (index: number, value: boolean) => void;
+  positions?: Record<number, Position>;
+  currentPosition?: Position | null;
+  onDefinePosition?: (index: number, position: Position) => void;
+  onTeachCurrent?: (index: number) => void;
 }
 
 interface TabProps {
@@ -31,6 +38,9 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onPress }) => (
   <TouchableOpacity
     style={[styles.tab, isActive && styles.tabActive]}
     onPress={onPress}
+    accessibilityRole="tab"
+    accessibilityState={{ selected: isActive }}
+    accessibilityLabel={label}
   >
     <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
       {label}
@@ -97,12 +107,16 @@ export const IOPanel: React.FC<IOPanelProps> = ({
   digitalOutputs,
   registers,
   onDigitalInputChange,
+  positions,
+  currentPosition = null,
+  onDefinePosition,
+  onTeachCurrent,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inputs' | 'outputs' | 'registers'>('inputs');
+  const [activeTab, setActiveTab] = useState<'inputs' | 'outputs' | 'registers' | 'positions'>('inputs');
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
+      <View style={styles.tabBar} accessibilityRole="tablist">
         <Tab
           label="DI (Inputs)"
           isActive={activeTab === 'inputs'}
@@ -118,6 +132,13 @@ export const IOPanel: React.FC<IOPanelProps> = ({
           isActive={activeTab === 'registers'}
           onPress={() => setActiveTab('registers')}
         />
+        {positions && onDefinePosition && onTeachCurrent && (
+          <Tab
+            label="P[]"
+            isActive={activeTab === 'positions'}
+            onPress={() => setActiveTab('positions')}
+          />
+        )}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -163,6 +184,14 @@ export const IOPanel: React.FC<IOPanelProps> = ({
             ))}
           </View>
         )}
+        {activeTab === 'positions' && positions && onDefinePosition && onTeachCurrent && (
+          <PositionPanel
+            positions={positions}
+            currentPosition={currentPosition}
+            onDefinePosition={onDefinePosition}
+            onTeachCurrent={onTeachCurrent}
+          />
+        )}
       </ScrollView>
 
       {activeTab === 'inputs' && (
@@ -177,16 +206,16 @@ export const IOPanel: React.FC<IOPanelProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: theme.panel,
     borderRadius: 8,
     margin: 8,
     overflow: 'hidden',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: theme.border,
   },
   tab: {
     flex: 1,
@@ -195,17 +224,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   tabActive: {
-    borderBottomColor: '#2196F3',
+    borderBottomColor: theme.accent,
   },
   tabText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#999',
+    color: theme.muted,
   },
   tabTextActive: {
-    color: '#2196F3',
+    color: theme.accent,
   },
   content: {
     flex: 1,
@@ -223,17 +254,18 @@ const styles = StyleSheet.create({
     width: '48%',
     paddingVertical: 12,
     paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.surface,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 44,
   },
   ioItemActive: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
+    backgroundColor: '#1e3a28',
+    borderColor: theme.play,
   },
   ioItemOutput: {
     opacity: 0.7,
@@ -244,27 +276,27 @@ const styles = StyleSheet.create({
   ioLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#333',
+    color: theme.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   ioIndicator: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#ddd',
+    backgroundColor: theme.border,
   },
   ioIndicatorActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.play,
   },
   registerValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2196F3',
+    color: theme.accent,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   hint: {
     fontSize: 11,
-    color: '#999',
+    color: theme.muted,
     paddingHorizontal: 12,
     paddingBottom: 8,
     fontStyle: 'italic',

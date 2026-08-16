@@ -5,6 +5,7 @@
  */
 
 import React, { useCallback } from 'react';
+import { theme } from '../theme';
 import {
   View,
   TouchableOpacity,
@@ -86,6 +87,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
           ]}
           onPress={handlePlayPress}
           disabled={isRunning && !isPaused}
+          accessibilityRole="button"
+          accessibilityLabel={isPaused ? 'Resume program' : 'Play program'}
         >
           <Text style={styles.buttonText}>
             {isPaused ? '▶ Resume' : '▶ Play'}
@@ -100,6 +103,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
           ]}
           onPress={onPause}
           disabled={!isRunning || isPaused}
+          accessibilityRole="button"
+          accessibilityLabel="Pause program"
         >
           <Text style={styles.buttonText}>⏸ Pause</Text>
         </TouchableOpacity>
@@ -112,6 +117,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
           ]}
           onPress={onStep}
           disabled={isRunning && !isPaused}
+          accessibilityRole="button"
+          accessibilityLabel="Step one line"
         >
           <Text style={styles.buttonText}>⏭ Step</Text>
         </TouchableOpacity>
@@ -119,6 +126,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
         <TouchableOpacity
           style={[styles.button, styles.resetButton]}
           onPress={onReset}
+          accessibilityRole="button"
+          accessibilityLabel="Reset execution"
         >
           <Text style={styles.buttonText}>⟲ Reset</Text>
         </TouchableOpacity>
@@ -127,6 +136,8 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
           <TouchableOpacity
             style={[styles.button, styles.breakpointButton]}
             onPress={onBreakpoint}
+            accessibilityRole="button"
+            accessibilityLabel="Add breakpoint at current line"
           >
             <Text style={styles.buttonText}>🔴 Breakpoint</Text>
           </TouchableOpacity>
@@ -138,9 +149,9 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.panel,
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: theme.border,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
@@ -166,11 +177,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: theme.text,
   },
   errorText: {
     fontSize: 12,
-    color: '#d32f2f',
+    color: theme.danger,
     marginTop: 4,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -189,19 +200,19 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   playButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.play,
   },
   pauseButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: theme.pause,
   },
   stepButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: theme.step,
   },
   resetButton: {
-    backgroundColor: '#9C27B0',
+    backgroundColor: theme.reset,
   },
   breakpointButton: {
-    backgroundColor: '#d32f2f',
+    backgroundColor: theme.danger,
   },
   buttonDisabled: {
     opacity: 0.5,

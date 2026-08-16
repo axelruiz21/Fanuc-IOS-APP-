@@ -14,26 +14,38 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { theme } from '../theme';
 
 export interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   onSave?: (value: string) => void;
   readOnly?: boolean;
+  currentLine?: number | null;
 }
 
 interface LineNumberProps {
   lineCount: number;
+  currentLine?: number | null;
 }
 
-const LineNumbers: React.FC<LineNumberProps> = ({ lineCount }) => {
+const LineNumbers: React.FC<LineNumberProps> = ({ lineCount, currentLine }) => {
   return (
     <View style={styles.lineNumbers}>
-      {Array.from({ length: lineCount || 1 }, (_, i) => (
-        <Text key={i} style={styles.lineNumber}>
-          {i + 1}
-        </Text>
-      ))}
+      {Array.from({ length: lineCount || 1 }, (_, i) => {
+        const isCurrent = currentLine === i;
+        return (
+          <Text
+            key={i}
+            style={[styles.lineNumber, isCurrent && styles.lineNumberCurrent]}
+            accessibilityLabel={
+              isCurrent ? `Line ${i + 1}, current line` : `Line ${i + 1}`
+            }
+          >
+            {i + 1}
+          </Text>
+        );
+      })}
     </View>
   );
 };
@@ -42,6 +54,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
   onChange,
   readOnly = false,
+  currentLine = null,
 }) => {
   const lineCount = value.split('\n').length;
 
@@ -64,19 +77,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           showsHorizontalScrollIndicator={false}
         >
           <View style={styles.editorRow}>
-            <LineNumbers lineCount={lineCount} />
+            <LineNumbers lineCount={lineCount} currentLine={currentLine} />
             <TextInput
               style={[styles.input, readOnly && styles.inputReadOnly]}
               value={value}
               onChangeText={handleChange}
               multiline
               editable={!readOnly}
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.muted}
               placeholder={'; Enter FANUC program here\n\nMOVE P[1]\nDOUT OT[1]=ON\nWAIT 1.0\nEND'}
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect={false}
               scrollEnabled={false}
+              accessibilityLabel="FANUC program editor"
             />
           </View>
         </ScrollView>
@@ -88,7 +102,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
   },
   editorContainer: {
     flex: 1,
@@ -114,6 +128,11 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     height: 18,
     lineHeight: 18,
+  },
+  lineNumberCurrent: {
+    color: theme.currentLineText,
+    backgroundColor: theme.currentLine,
+    fontWeight: '700',
   },
   input: {
     flex: 1,
