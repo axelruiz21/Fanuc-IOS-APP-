@@ -68,6 +68,14 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().lastError).toMatch(/No current pose/i);
   });
 
+  it('can CALL a seeded lesson by id', async () => {
+    useAppStore.getState().setProgram('CALL UNREACHABLE\nEND');
+    await useAppStore.getState().runProgram();
+    const s = useAppStore.getState();
+    expect(s.lastError).toMatch(/unreachable/);
+    expect(s.lastError).not.toMatch(/unknown program/i);
+  });
+
   it('updates programCounter while WAIT is running', async () => {
     useAppStore.getState().setProgram('WAIT 0.15\nEND');
     const run = useAppStore.getState().runProgram();

@@ -2,7 +2,7 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL is not implemented.
+**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL runs registered subprograms (`CALL REACHABLE`, `CALL UNREACHABLE`); unknown names error.
 
 **Run (web):** `npm install && npm run start:web`
 
@@ -413,7 +413,7 @@ npm run docs         # Generate documentation
 **A:** Phase 3 (state management). Phase 1 interpreter is stateless (loads fresh each time).
 
 ### Q: What about subprograms?
-**A:** CALL throws `CALL is not implemented in this MVP`. Subprogram execution is out of scope for this repair.
+**A:** `CALL NAME` runs a program registered on the interpreter (`registerProgram`). Lesson ids `REACHABLE` and `UNREACHABLE` are seeded. Unknown names fail with `CALL: unknown program NAME` — never silent success. See `docs/superpowers/specs/2026-08-16-call-semantics.md`.
 
 ### Q: How fast is the interpreter?
 **A:** <100ms for typical 10-20 line programs. TBD: benchmark Phase 1 vs Phase 2 overhead.
@@ -443,7 +443,7 @@ npm run docs         # Generate documentation
 
 ## 🎉 Status
 
-Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the web 6-link arm, see illegal MOVE fail. Nested IF/FOR work. CALL is unimplemented. Native 3D is still the 2D viewport.
+Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the web 6-link arm, see illegal MOVE fail. Nested IF/FOR work. CALL runs registered programs (unknown names error). Native 3D is still the 2D viewport.
 
 **Next:** iOS 3D (same `app/kinematics`), CALL spec, more lessons.
 

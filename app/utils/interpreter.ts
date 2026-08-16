@@ -38,6 +38,14 @@ export interface Registers {
 }
 
 /**
+ * CALL return snapshot (public). Internal frames also keep caller lines/loops.
+ */
+export interface CallFrame {
+  programName: string;
+  returnPC: number;
+}
+
+/**
  * Complete interpreter state
  */
 export interface InterpreterState {
@@ -47,7 +55,7 @@ export interface InterpreterState {
   currentPosition: Position | null;          // Last moved-to position
   currentJoints: Joints;                     // J1..J6 radians, last IK solution
   programCounter: number;                    // Current line
-  callStack: number[];                       // For nested calls
+  callStack: CallFrame[];
   isRunning: boolean;
   isPaused: boolean;
   breakPoints: Set<number>;
@@ -87,6 +95,11 @@ interface LoopFrame {
   registerIndex: number;
 }
 
+interface InternalCallFrame extends CallFrame {
+  lines: string[];
+  loopStack: LoopFrame[];
+}
+
 interface ExecutionContext {
   state: InterpreterState;
   lines: string[];
@@ -95,9 +108,12 @@ interface ExecutionContext {
   pauseUntil?: number;
   didJump: boolean;
   loopStack: LoopFrame[];
+  callFrames: InternalCallFrame[];
   /** Resume must execute the paused line; skip the breakpoint check once. */
   skipBreakpointOnce?: boolean;
 }
+
+const MAX_CALL_DEPTH = 8;
 
 // ============================================================================
 // FANUC INTERPRETER CLASS
@@ -106,6 +122,7 @@ interface ExecutionContext {
 export class FANUCInterpreter {
   private state: InterpreterState;
   private context: ExecutionContext | null = null;
+  private programs = new Map<string, string>();
 
   constructor() {
     this.state = this.initializeState();
@@ -145,6 +162,17 @@ export class FANUCInterpreter {
     }
 
     return state;
+  }
+
+  /**
+   * Register a named subprogram for CALL. Names are case-insensitive.
+   */
+  public registerProgram(name: string, source: string): void {
+    const key = name.trim().toUpperCase();
+    if (!key) {
+      throw new Error('Program name required');
+    }
+    this.programs.set(key, source);
   }
 
   /**
@@ -241,7 +269,7 @@ export class FANUCInterpreter {
       currentPosition: this.state.currentPosition ? { ...this.state.currentPosition } : null,
       currentJoints: [...this.state.currentJoints] as Joints,
       programCounter: this.state.programCounter,
-      callStack: [...this.state.callStack],
+      callStack: this.state.callStack.map((frame) => ({ ...frame })),
       isRunning: this.state.isRunning,
       isPaused: this.state.isPaused,
       breakPoints: new Set(this.state.breakPoints),
@@ -263,6 +291,7 @@ export class FANUCInterpreter {
     const startTime = Date.now();
 
     try {
+      this.state.callStack = [];
       // Preprocess: clean and tokenize
       const lines = this.preprocessProgram(program);
       if (lines.length === 0) {
@@ -282,7 +311,9 @@ export class FANUCInterpreter {
         stopExecution: false,
         didJump: false,
         loopStack: [],
+        callFrames: [],
       };
+      this.state.callStack = [];
       this.state.isRunning = true;
       this.state.isPaused = false;
       this.state.programCounter = 0;
@@ -413,11 +444,15 @@ export class FANUCInterpreter {
 
     this.state.isRunning = true;
 
-    while (
-      this.state.programCounter < this.context.lines.length &&
-      !this.context.stopExecution &&
-      !this.state.isPaused
-    ) {
+    while (!this.context.stopExecution && !this.state.isPaused) {
+      if (this.state.programCounter >= this.context.lines.length) {
+        if (this.context.callFrames.length > 0) {
+          this.returnFromCall(this.state.programCounter);
+          continue;
+        }
+        break;
+      }
+
       const lineNumber = this.state.programCounter;
       const line = this.context.lines[lineNumber] ?? '';
       const trimmed = line.trim();
@@ -510,7 +545,7 @@ export class FANUCInterpreter {
         break;
       case 'END':
         log.push(`[${lineNumber}] ${command}`);
-        this.context.stopExecution = true;
+        this.returnFromCall(lineNumber);
         break;
       case 'ENDIF':
         log.push(`[${lineNumber}] ENDIF`);
@@ -525,6 +560,10 @@ export class FANUCInterpreter {
           this.context.didJump = true;
         } else {
           this.context.loopStack.pop();
+          const parent = this.context.loopStack[this.context.loopStack.length - 1];
+          if (parent) {
+            this.state.registers.PR[parent.registerIndex] = parent.current;
+          }
         }
         log.push(`[${lineNumber}] ENDFOR`);
         break;
@@ -932,10 +971,57 @@ export class FANUCInterpreter {
   /**
    * CALL program_name
    */
-  private executeCALL(_tokens: Token[], _lineNumber: number): void {
+  private executeCALL(tokens: Token[], lineNumber: number): void {
     if (!this.context) throw new Error('No execution context');
 
-    throw new Error('CALL is not implemented in this MVP');
+    const nameToken = tokens[1];
+    if (!nameToken) {
+      throw new Error('CALL: expected program name');
+    }
+
+    const name = nameToken.value.toUpperCase();
+    const source = this.programs.get(name);
+    if (!source) {
+      throw new Error(`CALL: unknown program ${name}`);
+    }
+    if (this.context.callFrames.length >= MAX_CALL_DEPTH) {
+      throw new Error('CALL: stack overflow');
+    }
+
+    this.context.callFrames.push({
+      programName: name,
+      returnPC: lineNumber + 1,
+      lines: this.context.lines,
+      loopStack: this.context.loopStack.map((frame) => ({ ...frame })),
+    });
+    this.syncCallStack();
+    this.context.lines = this.preprocessProgram(source);
+    this.context.loopStack = [];
+    this.state.programCounter = 0;
+    this.context.didJump = true;
+    this.context.log.push(`[${lineNumber}] CALL ${name}`);
+  }
+
+  private syncCallStack(): void {
+    this.state.callStack = (this.context?.callFrames ?? []).map((frame) => ({
+      programName: frame.programName,
+      returnPC: frame.returnPC,
+    }));
+  }
+
+  private returnFromCall(lineNumber: number): void {
+    if (!this.context) throw new Error('No execution context');
+    const frame = this.context.callFrames.pop();
+    this.syncCallStack();
+    if (!frame) {
+      this.context.stopExecution = true;
+      return;
+    }
+    this.context.lines = frame.lines;
+    this.context.loopStack = frame.loopStack;
+    this.state.programCounter = frame.returnPC;
+    this.context.didJump = true;
+    this.context.log.push(`[${lineNumber}] RETURN ${frame.programName}`);
   }
 
   /**

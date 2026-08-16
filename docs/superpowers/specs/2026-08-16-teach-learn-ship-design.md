@@ -23,7 +23,7 @@ Done looks like: edit a program, teach P[n], Play, watch the 6-link arm jump, se
 3. **Editor highlight uses VM PC** (0-based). UI line numbers stay 1-based. Highlight only while running, paused, or on error.
 4. **Two lessons:** reachable default program; unreachable `MOVE P[10]` (seeded 2000 mm). Lessons set the program only; they do not wipe taught/seeded positions.
 5. **Nested IF/FOR** with depth-aware matching. `FOR J` → `PR[1]` (P[J]). `FOR I` → `PR[2]`. `FOR K` → `PR[3]`. `FOR PR[n]` → that register. Unknown FOR names error.
-6. **CALL stays unimplemented** (`CALL is not implemented in this MVP`) until a later spec (stack/PC/errors).
+6. **CALL is specified** in `docs/superpowers/specs/2026-08-16-call-semantics.md` (stack, PC restore, explicit errors). Unknown names do not succeed.
 7. **Web-first.** Dark pendant chrome on existing RN views. No EAS / App Store.
 8. **Honesty:** kill “PRODUCTION READY” in leftover phase docs. Drop unused `jest-expo` and `@react-three/postprocessing`. GitHub Actions: `npm test` + `tsc --noEmit`.
 
