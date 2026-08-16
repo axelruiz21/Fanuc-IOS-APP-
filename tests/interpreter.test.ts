@@ -94,6 +94,66 @@ describe('FOR', () => {
     expect(result.state.registers.PR[2]).toBe(3);
     expect(result.state.currentPosition?.x).toBe(100);
   });
+
+  it('nests FOR I inside FOR J without clobbering P[J]', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    const result = await vm.execute(`PR[4]=0
+FOR J=1 TO 2
+  FOR I=1 TO 2
+    PR[4]=PR[4]+1
+  ENDFOR
+  MOVE P[J]
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(4);
+    expect(result.state.registers.PR[2]).toBe(3);
+    expect(result.state.currentPosition?.x).toBe(150);
+  });
+
+  it('supports FOR PR[n] as the loop register', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[5]=0
+FOR PR[3]=1 TO 3
+  PR[5]=PR[5]+PR[3]
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[5]).toBe(6);
+    expect(result.state.registers.PR[3]).toBe(4);
+  });
+
+  it('runs IF inside FOR', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[4]=0
+FOR J=1 TO 3
+  IF (PR[1]>1)
+    PR[4]=PR[4]+10
+  ELSE
+    PR[4]=PR[4]+1
+  ENDIF
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(21);
+  });
+
+  it('skips a nested FOR when the outer IF is false', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[4]=0
+IF (PR[1]>50)
+  FOR J=1 TO 3
+    PR[4]=PR[4]+1
+  ENDFOR
+ELSE
+  PR[4]=9
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(9);
+  });
 });
 
 describe('IF/ELSE', () => {
@@ -113,6 +173,57 @@ describe('IF/ELSE', () => {
     );
     expect(result.success).toBe(true);
     expect(result.state.registers.PR[2]).toBe(2);
+  });
+
+  it('runs the outer ELSE when a nested IF sits in the THEN branch', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=10
+IF (PR[1]>50)
+  IF (PR[1]>0)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(3);
+  });
+
+  it('runs the inner ELSE when the outer IF is true', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=75
+IF (PR[1]>50)
+  IF (PR[1]>100)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(2);
+  });
+
+  it('runs nested THEN when both conditions are true', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=150
+IF (PR[1]>50)
+  IF (PR[1]>100)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(1);
   });
 });
 

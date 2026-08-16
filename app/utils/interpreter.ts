@@ -817,16 +817,32 @@ export class FANUCInterpreter {
     throw new Error('WAIT expects seconds or DIN(DI[n])');
   }
 
+  private lineKeyword(line: string): string {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(';')) return '';
+    const match = trimmed.match(/^([A-Za-z_]+)/);
+    return match ? match[1].toUpperCase() : '';
+  }
+
   private findMatchingElseOrEndif(from: number): { elseLine: number | null; endifLine: number } {
     if (!this.context) throw new Error('No execution context');
+    let depth = 0;
     let elseLine: number | null = null;
     for (let i = from; i < this.context.lines.length; i++) {
-      const cmd = this.context.lines[i].trim().toUpperCase();
-      if (cmd === 'ELSE' || cmd.startsWith('ELSE ')) {
-        elseLine = i;
+      const keyword = this.lineKeyword(this.context.lines[i]);
+      if (keyword === 'IF') {
+        depth += 1;
+        continue;
       }
-      if (cmd === 'ENDIF' || cmd.startsWith('ENDIF ')) {
-        return { elseLine, endifLine: i };
+      if (keyword === 'ENDIF') {
+        if (depth === 0) {
+          return { elseLine, endifLine: i };
+        }
+        depth -= 1;
+        continue;
+      }
+      if (keyword === 'ELSE' && depth === 0 && elseLine === null) {
+        elseLine = i;
       }
     }
     throw new Error('Missing ENDIF');
@@ -852,17 +868,48 @@ export class FANUCInterpreter {
     }
   }
 
+  private parseForHeader(fullLine: string): {
+    variable: string;
+    start: number;
+    end: number;
+    registerIndex: number;
+  } {
+    const prMatch = fullLine.match(/FOR\s+PR\[(\d+)\]\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
+    if (prMatch) {
+      const registerIndex = parseInt(prMatch[1], 10);
+      if (registerIndex < 1 || registerIndex > 100) {
+        throw new Error(`PR index must be 1-100, got ${registerIndex}`);
+      }
+      return {
+        variable: `PR[${registerIndex}]`,
+        start: parseInt(prMatch[2], 10),
+        end: parseInt(prMatch[3], 10),
+        registerIndex,
+      };
+    }
+
+    const named = fullLine.match(/FOR\s+(\w+)\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
+    if (!named) throw new Error('Invalid FOR syntax');
+    const variable = named[1].toUpperCase();
+    const letterRegisters: Record<string, number> = { J: 1, I: 2, K: 3 };
+    const registerIndex = letterRegisters[variable];
+    if (registerIndex == null) {
+      throw new Error(`FOR variable must be J, I, K, or PR[n], got ${variable}`);
+    }
+    return {
+      variable,
+      start: parseInt(named[2], 10),
+      end: parseInt(named[3], 10),
+      registerIndex,
+    };
+  }
+
   /**
    * FOR J=start TO end ... ENDFOR
    */
   private executeFOR(_tokens: Token[], lineNumber: number, fullLine: string): void {
     if (!this.context) throw new Error('No execution context');
-    const forMatch = fullLine.match(/FOR\s+(\w+)\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
-    if (!forMatch) throw new Error('Invalid FOR syntax');
-    const variable = forMatch[1].toUpperCase();
-    const start = parseInt(forMatch[2], 10);
-    const end = parseInt(forMatch[3], 10);
-    const registerIndex = variable === 'J' || !/\d/.test(variable) ? 1 : parseInt(variable.replace(/\D/g, ''), 10);
+    const { variable, start, end, registerIndex } = this.parseForHeader(fullLine);
     this.state.registers.PR[registerIndex] = start;
     this.context.loopStack.push({
       headerLine: lineNumber,
