@@ -3,7 +3,7 @@
  * FANUC iOS Teach Pendant MVP
  */
 
-import { useCallback } from 'react';
+import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react';
 import {
   View,
   StyleSheet,
@@ -25,20 +25,43 @@ import { editorHighlightIndex } from './editor/programCounter';
 import { theme } from './theme';
 import type { InterpreterState } from './utils/interpreter';
 
+class SceneErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('3D viewport failed; using 2D fallback', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
-  if (Platform.OS === 'web') {
-    return (
+  return (
+    <SceneErrorBoundary
+      fallback={
+        <Viewport3D
+          currentPosition={interpreterState.currentPosition}
+          isLoading={false}
+        />
+      }
+    >
       <RobotArmViewer
         joints={interpreterState.currentJoints}
         currentPosition={interpreterState.currentPosition}
       />
-    );
-  }
-  return (
-    <Viewport3D
-      currentPosition={interpreterState.currentPosition}
-      isLoading={false}
-    />
+    </SceneErrorBoundary>
   );
 }
 

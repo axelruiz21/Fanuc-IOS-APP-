@@ -1,12 +1,14 @@
 /**
  * LR Mate 200iD 6-link viewer. Driven by IK joints; does not solve IK.
- * Platform-suffix-free so RobotArm.web.tsx can re-export without a Metro cycle.
+ * Platform Canvas comes from FiberCanvas(.web|.native).
  */
 import React, { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { View, StyleSheet } from 'react-native';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { forwardFrames, HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
+import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
+import { armOriginsMm } from './armLinks';
+import { Canvas } from './FiberCanvas';
 
 export type Position = CartesianPose;
 
@@ -54,10 +56,7 @@ const ArmModel: React.FC<{ joints: Joints; currentPosition?: CartesianPose | nul
   joints,
   currentPosition,
 }) => {
-  const origins = useMemo(() => {
-    const frames = forwardFrames(joints);
-    return [[0, 0, 0] as [number, number, number], ...frames.map((f) => f.originMm)];
-  }, [joints]);
+  const origins = useMemo(() => armOriginsMm(joints), [joints]);
 
   const points = origins.map(mmToM);
   const tip = points[points.length - 1];
@@ -120,15 +119,31 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
   currentPosition = null,
 }) => {
   return (
-    <Canvas
-      camera={{ position: [1.5, 1.1, 1.5], fov: 45, near: 0.05, far: 20 }}
-      style={{ width: '100%', height: '100%', backgroundColor: '#1a1a1a' }}
-      dpr={[1, 2]}
-      gl={{ antialias: true }}
-    >
-      <RobotScene joints={joints} currentPosition={currentPosition} />
-    </Canvas>
+    <View style={styles.wrap} accessibilityLabel="Robot arm 3D viewport">
+      <Canvas
+        camera={{ position: [1.5, 1.1, 1.5], fov: 45, near: 0.05, far: 20 }}
+        style={styles.canvas}
+        dpr={[1, 2]}
+        gl={{ antialias: true }}
+      >
+        <RobotScene joints={joints} currentPosition={currentPosition} />
+      </Canvas>
+    </View>
   );
 };
 
 export default RobotArmViewer;
+
+const styles = StyleSheet.create({
+  wrap: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+    minHeight: 240,
+  },
+  canvas: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1a1a',
+  },
+});

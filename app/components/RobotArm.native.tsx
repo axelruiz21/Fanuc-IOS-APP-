@@ -1,19 +1,6 @@
 /**
- * Native resolution for `import './RobotArm'`. Must not pull Three / R3F /
- * expo-gl; App mounts Viewport3D on iOS instead.
+ * Native resolution for `import './RobotArm'`. Metro loads expo-gl via
+ * `@react-three/fiber/native` (see FiberCanvas.native.tsx). Same joints as web.
  */
-import type { CartesianPose, Joints } from '../kinematics';
-
-export type Position = CartesianPose;
-
-export interface RobotArmProps {
-  joints: Joints;
-  currentPosition?: CartesianPose | null;
-}
-
-export function RobotArmViewer(props: RobotArmProps): null {
-  void props;
-  return null;
-}
-
-export default RobotArmViewer;
+export { RobotArmViewer, default } from './RobotArmCanvas';
+export type { RobotArmProps, Position } from './RobotArmCanvas';

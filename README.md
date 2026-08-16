@@ -2,9 +2,11 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web 3D is a 6-link arm driven by `currentJoints`. iOS still uses the 2D `Viewport3D`. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL runs registered subprograms (`CALL REACHABLE`, `CALL UNREACHABLE`); unknown names error.
+**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web **and native** 3D is a 6-link arm driven by `currentJoints` (native: expo-gl / R3F). If GL throws, the old 2D `Viewport3D` is the fallback. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL runs registered subprograms (`CALL REACHABLE`, `CALL UNREACHABLE`); unknown names error.
 
 **Run (web):** `npm install && npm run start:web`
+
+**Run (iOS):** `npm install && npx expo start --ios` (needs Xcode / a device). The arm uses the same `currentJoints` as web.
 
 **Smoke:** (A) Lesson **1. Reachable MOVE** → Play and wait >1s (`WAIT 1.0`) — arm jumps P[1] then P[2]. (B) Lesson **2. Unreachable MOVE** → Play — error contains `unreachable`; the arm does not move. P[10] is seeded at 2000 mm. Teach: open the **P[]** tab, edit a point, Apply, or Teach current after a successful MOVE. The editor gutter highlights the current line while running, paused, or on error.
 
@@ -407,7 +409,7 @@ npm run docs         # Generate documentation
 **A:** Document in `PHASE1_COMPLETE.md` as "Phase 2+ feature". Do NOT modify Phase 1 interpreter.
 
 ### Q: Where's the 3D viewer?
-**A:** Phase 4. Phase 1 just tracks position data. Phase 2 shows it in UI. Phase 4 renders in 3D.
+**A:** Web and native both mount `RobotArmViewer` from `currentJoints` (analytic IK). Native uses `expo-gl` via `@react-three/fiber/native`. If GL throws, `Viewport3D` (2D) is the fallback.
 
 ### Q: Can students save programs?
 **A:** Phase 3 (state management). Phase 1 interpreter is stateless (loads fresh each time).
@@ -443,7 +445,7 @@ npm run docs         # Generate documentation
 
 ## 🎉 Status
 
-Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the web 6-link arm, see illegal MOVE fail. Nested IF/FOR work. CALL runs registered programs (unknown names error). Native 3D is still the 2D viewport.
+Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the 6-link arm, see illegal MOVE fail. Nested IF/FOR work. CALL runs registered programs (unknown names error). Native 3D uses expo-gl with the same kinematics (2D viewport only if GL throws).
 
 **Next:** iOS 3D (same `app/kinematics`), CALL spec, more lessons.
 
