@@ -53,9 +53,9 @@ Kinematics stay headless. Native viewer **reads** `joints`; it never calls `inve
 
 1. Same URDF chain / `forwardFrames` as web.
 2. Jump pose, no blending.
-3. Cylinders/spheres only — no CAD, no collision.
-4. `OrbitControls` from drei (fiber native maps the GL view). If GL init throws, show existing `Viewport3D`.
-5. `expo-gl ~13.6` (Expo 50). No EAS/App Store.
+3. Visual CAD STLs from ROS-Industrial LR Mate 200iD (base model). Cylinder `PrimitiveArm` if a mesh fails to load. No collision meshes.
+4. Web: damped drei `OrbitControls`. Native: `PanResponder` + `app/viewer/orbit.ts` (rotate / pinch / pan). If GL init throws, show existing `Viewport3D`.
+5. `expo-gl ~13.6` (Expo 50). EAS config is in-repo (`eas.json`); billed builds and store submit stay local to Axel.
 6. Web smoke unchanged.
 
 ---
@@ -70,4 +70,4 @@ Kinematics stay headless. Native viewer **reads** `joints`; it never calls `inve
 
 ## 6. Out of scope
 
-CAD meshes, gesture-polish beyond drei orbit, Android-only GPU workarounds, Expo Go vs dev-client investigation beyond documenting `npx expo start --ios`.
+Collision meshes, billed `eas build` / store submit, Android-only GPU workarounds. CAD, orbit-gesture polish, and EAS config: see `2026-08-20-cad-orbit-eas-design.md`.

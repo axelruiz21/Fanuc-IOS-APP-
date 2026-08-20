@@ -39,6 +39,7 @@
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
+    "app/**/*.d.ts",
     "tests/**/*.ts"
   ],
   "exclude": [
