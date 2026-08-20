@@ -118,17 +118,17 @@ export const IOPanel: React.FC<IOPanelProps> = ({
     <View style={styles.container}>
       <View style={styles.tabBar} accessibilityRole="tablist">
         <Tab
-          label="DI (Inputs)"
+          label="DI"
           isActive={activeTab === 'inputs'}
           onPress={() => setActiveTab('inputs')}
         />
         <Tab
-          label="DO (Outputs)"
+          label="DO"
           isActive={activeTab === 'outputs'}
           onPress={() => setActiveTab('outputs')}
         />
         <Tab
-          label="PR (Registers)"
+          label="PR"
           isActive={activeTab === 'registers'}
           onPress={() => setActiveTab('registers')}
         />
@@ -195,9 +195,7 @@ export const IOPanel: React.FC<IOPanelProps> = ({
       </ScrollView>
 
       {activeTab === 'inputs' && (
-        <Text style={styles.hint}>
-          Tap digital inputs to simulate ON/OFF
-        </Text>
+        <Text style={styles.hint}>Tap to drive inputs</Text>
       )}
     </View>
   );
@@ -207,98 +205,94 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.panel,
-    borderRadius: 8,
-    margin: 8,
     overflow: 'hidden',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: theme.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.border,
+    paddingHorizontal: 12,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
-    borderBottomWidth: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'transparent',
-    minHeight: 44,
+    minHeight: 40,
     justifyContent: 'center',
   },
   tabActive: {
-    borderBottomColor: theme.accent,
+    borderBottomColor: theme.rule,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 1.6,
     color: theme.muted,
   },
   tabTextActive: {
-    color: theme.accent,
+    color: theme.text,
   },
   content: {
     flex: 1,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   registerGrid: {
-    gap: 12,
+    gap: 8,
   },
   ioItem: {
     width: '48%',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: theme.surface,
-    borderRadius: 6,
-    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 40,
   },
   ioItemActive: {
-    backgroundColor: '#1e3a28',
-    borderColor: theme.play,
+    borderColor: theme.rule,
   },
   ioItemOutput: {
-    opacity: 0.7,
+    opacity: 0.72,
   },
   ioItemDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   ioLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
     color: theme.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   ioIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: theme.border,
   },
   ioIndicatorActive: {
-    backgroundColor: theme.play,
+    backgroundColor: theme.rule,
   },
   registerValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.accent,
+    fontSize: 13,
+    color: theme.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   hint: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.muted,
-    paddingHorizontal: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
     paddingBottom: 8,
-    fontStyle: 'italic',
   },
 });

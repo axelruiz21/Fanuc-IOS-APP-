@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LESSONS } from '../lessons';
-import { theme } from '../theme';
+import { theme, type } from '../theme';
 
 export interface LessonPickerProps {
   onLoadLesson: (id: string) => void;
@@ -10,17 +10,17 @@ export interface LessonPickerProps {
 export const LessonPicker: React.FC<LessonPickerProps> = ({ onLoadLesson }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Lessons</Text>
+      <Text style={type.label}>Lessons</Text>
       <View style={styles.row}>
         {LESSONS.map((lesson) => (
           <TouchableOpacity
             key={lesson.id}
-            style={styles.chip}
+            style={styles.link}
             onPress={() => onLoadLesson(lesson.id)}
             accessibilityRole="button"
             accessibilityLabel={`Load lesson ${lesson.title}`}
           >
-            <Text style={styles.chipText}>{lesson.title}</Text>
+            <Text style={styles.linkText}>{lesson.title}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -30,35 +30,23 @@ export const LessonPicker: React.FC<LessonPickerProps> = ({ onLoadLesson }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    backgroundColor: theme.bg,
-  },
-  label: {
-    color: theme.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 6,
-    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    gap: 8,
+    backgroundColor: theme.panel,
   },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 16,
   },
-  chip: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    minHeight: 44,
+  link: {
+    minHeight: 36,
     justifyContent: 'center',
   },
-  chipText: {
-    color: theme.accent,
+  linkText: {
+    color: theme.text,
     fontSize: 12,
-    fontWeight: '600',
+    letterSpacing: 0.4,
   },
 });

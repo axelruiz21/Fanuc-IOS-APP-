@@ -6,6 +6,7 @@ import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_ORBIT } from '../viewer/orbit';
+import { theme } from '../theme';
 import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
@@ -21,13 +22,13 @@ export interface RobotArmProps {
 const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
   return (
     <>
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[2, 3, 2]} intensity={0.9} />
-      <directionalLight position={[-2, 1, -1]} intensity={0.25} />
-      <gridHelper args={[2, 20]} />
+      <color attach="background" args={[theme.bg]} />
+      <ambientLight intensity={0.22} />
+      <directionalLight position={[2.2, 3.4, 1.6]} intensity={0.55} color="#F4F1EC" />
+      <directionalLight position={[-2.4, 0.8, -1.2]} intensity={0.18} color="#C5A572" />
+      <gridHelper args={[2.4, 12, theme.border, '#161412']} />
       <group rotation={[-Math.PI / 2, 0, 0]}>
         <CadArm joints={joints} currentPosition={currentPosition} />
-        <axesHelper args={[0.25]} />
       </group>
     </>
   );
@@ -60,13 +61,13 @@ export default RobotArmViewer;
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
-    minHeight: 240,
+    backgroundColor: theme.bg,
+    minHeight: 220,
   },
   canvas: {
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: theme.bg,
   },
 });

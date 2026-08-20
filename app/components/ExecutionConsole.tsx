@@ -1,11 +1,10 @@
 /**
- * ExecutionConsole Component
- * Display execution log and real-time program output
- * Phase 2: UI Components
+ * Execution log — bone on black, rust for errors.
  */
 
 import React, { useEffect, useRef } from 'react';
 import { displayLineNumber } from '../editor/programCounter';
+import { theme, type } from '../theme';
 import {
   View,
   ScrollView,
@@ -19,6 +18,8 @@ export interface ExecutionConsoleProps {
   currentLineNumber?: number;
   autoScroll?: boolean;
 }
+
+const MONO = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
 
 export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
   logs = [],
@@ -36,37 +37,9 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
   }, [logs, autoScroll]);
 
   const renderLogLine = (log: string, index: number) => {
-    let color = '#d4d4d4';
-    let backgroundColor = '#1e1e1e';
-
-    if (log.includes('[ERROR]')) {
-      color = '#f48771';
-      backgroundColor = '#3d2d2d';
-    } else if (log.includes('[BREAKPOINT]')) {
-      color = '#ff5252';
-      backgroundColor = '#3d2d2d';
-    } else if (log.includes('[STEP]')) {
-      color = '#64b5f6';
-    } else if (log.includes('[WARN]')) {
-      color = '#ffb74d';
-    } else if (log.includes('MOVE')) {
-      color = '#81c784';
-    } else if (log.includes('WAIT')) {
-      color = '#ffb74d';
-    } else if (log.includes('DOUT')) {
-      color = '#ba68c8';
-    } else if (log.includes('IF') || log.includes('FOR')) {
-      color = '#64b5f6';
-    }
-
+    const isError = log.includes('[ERROR]') || log.includes('[BREAKPOINT]');
     return (
-      <Text
-        key={index}
-        style={[
-          styles.logLine,
-          { color, backgroundColor },
-        ]}
-      >
+      <Text key={index} style={[styles.logLine, isError && styles.logError]}>
         {log}
       </Text>
     );
@@ -75,13 +48,13 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Execution Log</Text>
+        <Text style={type.label}>Log</Text>
         {currentLineNumber !== undefined && (
           <Text
             style={styles.lineCounter}
             accessibilityLabel={`Current line ${displayLineNumber(currentLineNumber)}`}
           >
-            Line: {displayLineNumber(currentLineNumber)}
+            {displayLineNumber(currentLineNumber)}
           </Text>
         )}
       </View>
@@ -91,7 +64,7 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
         showsVerticalScrollIndicator={true}
       >
         {logs.length === 0 ? (
-          <Text style={styles.emptyText}>No logs yet. Run a program to see output.</Text>
+          <Text style={styles.emptyText}>Awaiting play</Text>
         ) : (
           <View style={styles.logContainer}>
             {logs.map((log, index) => renderLogLine(log, index))}
@@ -105,53 +78,46 @@ export const ExecutionConsole: React.FC<ExecutionConsoleProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 8,
-    margin: 8,
-    overflow: 'hidden',
+    backgroundColor: theme.panel,
   },
   header: {
-    backgroundColor: '#252526',
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3e3e42',
+    paddingHorizontal: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#d4d4d4',
-  },
   lineCounter: {
     fontSize: 11,
-    color: '#858585',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: theme.muted,
+    fontFamily: MONO,
+    letterSpacing: 1,
   },
   scrollContainer: {
     flex: 1,
   },
   logContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 20,
   },
   logLine: {
     fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: MONO,
     lineHeight: 16,
-    color: '#d4d4d4',
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    marginVertical: 1,
-    borderRadius: 2,
+    color: theme.muted,
+    paddingVertical: 1,
+  },
+  logError: {
+    color: theme.danger,
   },
   emptyText: {
-    color: '#858585',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 32,
-    fontStyle: 'italic',
+    color: theme.muted,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
 });

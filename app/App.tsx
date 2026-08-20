@@ -1,6 +1,6 @@
 /**
  * Main Application Component
- * FANUC iOS Teach Pendant MVP
+ * FANUC iOS Teach Pendant MVP — editorial night chrome
  */
 
 import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react';
@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  Text,
   useWindowDimensions,
 } from 'react-native';
 import { useAppStore } from './store';
@@ -22,7 +23,7 @@ import { Viewport3D } from './components/Viewport3D';
 import { RobotArmViewer } from './components/RobotArm';
 import { LessonPicker } from './components/LessonPicker';
 import { editorHighlightIndex } from './editor/programCounter';
-import { theme } from './theme';
+import { theme, type } from './theme';
 import type { InterpreterState } from './utils/interpreter';
 
 class SceneErrorBoundary extends Component<
@@ -62,6 +63,15 @@ function SceneViewport({ interpreterState }: { interpreterState: InterpreterStat
         currentPosition={interpreterState.currentPosition}
       />
     </SceneErrorBoundary>
+  );
+}
+
+function Masthead() {
+  return (
+    <View style={styles.masthead}>
+      <Text style={type.wordmark}>LR Mate 200iD</Text>
+      <Text style={styles.mastheadSub}>Teach</Text>
+    </View>
   );
 }
 
@@ -121,85 +131,75 @@ function PendantScreen() {
     }
   }, [interpreterState.programCounter, addBreakpoint]);
 
-  const editor = (
-    <View style={isLandscape ? styles.editorSection : styles.portraitEditor}>
-      <LessonPicker onLoadLesson={loadLesson} />
-      <CodeEditor
-        value={program}
-        onChange={setProgram}
-        readOnly={isRunning && !isPaused}
-        currentLine={currentLine}
-      />
-    </View>
-  );
-
   const viewport = (
-    <View style={isLandscape ? styles.viewportSection : styles.portraitViewport}>
+    <View style={isLandscape ? styles.hero : styles.portraitHero}>
+      <Text style={[type.label, styles.heroLabel]}>Arm</Text>
       <SceneViewport interpreterState={interpreterState} />
     </View>
   );
 
-  const controls = (
-    <ExecutionControls
-      isRunning={isRunning}
-      isPaused={isPaused}
-      onPlay={handlePlay}
-      onPause={handlePause}
-      onResume={handleResume}
-      onStep={handleStep}
-      onReset={handleReset}
-      onBreakpoint={handleBreakpoint}
-      status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
-      errorMessage={lastError}
-    />
-  );
-
-  const io = (
-    <IOPanel
-      digitalInputs={interpreterState.io.DI}
-      digitalOutputs={interpreterState.io.DO}
-      registers={interpreterState.registers.PR}
-      onDigitalInputChange={(idx, val) => {
-        useAppStore.getState().setDigitalInput(idx, val);
-      }}
-      positions={interpreterState.positions}
-      currentPosition={interpreterState.currentPosition}
-      onDefinePosition={definePosition}
-      onTeachCurrent={teachCurrentPosition}
-    />
-  );
-
-  const consolePanel = (
-    <ExecutionConsole
-      logs={executionLogs}
-      currentLineNumber={currentLine ?? undefined}
-      autoScroll={true}
-    />
+  const rail = (
+    <View style={isLandscape ? styles.rail : styles.portraitRail}>
+      <Masthead />
+      <LessonPicker onLoadLesson={loadLesson} />
+      <View style={isLandscape ? styles.editorSection : styles.portraitEditor}>
+        <Text style={[type.label, styles.sectionLabel]}>Program</Text>
+        <CodeEditor
+          value={program}
+          onChange={setProgram}
+          readOnly={isRunning && !isPaused}
+          currentLine={currentLine}
+        />
+      </View>
+      <ExecutionControls
+        isRunning={isRunning}
+        isPaused={isPaused}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onResume={handleResume}
+        onStep={handleStep}
+        onReset={handleReset}
+        onBreakpoint={handleBreakpoint}
+        status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
+        errorMessage={lastError}
+      />
+      <View style={isLandscape ? styles.dataSection : styles.portraitIO}>
+        <IOPanel
+          digitalInputs={interpreterState.io.DI}
+          digitalOutputs={interpreterState.io.DO}
+          registers={interpreterState.registers.PR}
+          onDigitalInputChange={(idx, val) => {
+            useAppStore.getState().setDigitalInput(idx, val);
+          }}
+          positions={interpreterState.positions}
+          currentPosition={interpreterState.currentPosition}
+          onDefinePosition={definePosition}
+          onTeachCurrent={teachCurrentPosition}
+        />
+      </View>
+      <View style={isLandscape ? styles.logSection : styles.portraitConsole}>
+        <ExecutionConsole
+          logs={executionLogs}
+          currentLineNumber={currentLine ?? undefined}
+          autoScroll={true}
+        />
+      </View>
+    </View>
   );
 
   if (isLandscape) {
     return (
-      <View style={styles.landscapeContainer}>
-        <View style={styles.leftPanel}>
-          {editor}
-          {viewport}
-        </View>
-        <View style={styles.rightPanel}>
-          {controls}
-          <View style={styles.flexFill}>{io}</View>
-          <View style={styles.flexFill}>{consolePanel}</View>
-        </View>
+      <View style={styles.landscape}>
+        {viewport}
+        {rail}
       </View>
     );
   }
 
   return (
-    <View style={styles.portraitContainer}>
-      {editor}
+    <View style={styles.portrait}>
       {viewport}
-      {controls}
-      <View style={styles.portraitIO}>{io}</View>
-      <View style={styles.portraitConsole}>{consolePanel}</View>
+      {rail}
     </View>
   );
 }
@@ -223,44 +223,80 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
-  landscapeContainer: {
+  landscape: {
     flex: 1,
     flexDirection: 'row',
     backgroundColor: theme.bg,
   },
-  leftPanel: {
+  portrait: {
     flex: 1,
     flexDirection: 'column',
+    backgroundColor: theme.bg,
   },
-  rightPanel: {
+  hero: {
+    flex: 1.65,
+    backgroundColor: theme.bg,
+    minWidth: 280,
+  },
+  portraitHero: {
+    flex: 1.15,
+    minHeight: 220,
+    backgroundColor: theme.bg,
+  },
+  heroLabel: {
+    position: 'absolute',
+    top: 16,
+    left: 20,
+    zIndex: 2,
+  },
+  rail: {
     flex: 1,
-    flexDirection: 'column',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: theme.rule,
+    backgroundColor: theme.panel,
+    minWidth: 320,
+  },
+  portraitRail: {
+    flex: 1.35,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.rule,
+    backgroundColor: theme.panel,
+  },
+  masthead: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    gap: 4,
+  },
+  mastheadSub: {
+    color: theme.muted,
+    fontSize: 11,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+  },
+  sectionLabel: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   editorSection: {
-    flex: 1.2,
+    flex: 1.15,
   },
-  viewportSection: {
-    flex: 0.8,
-    minHeight: 240,
+  dataSection: {
+    flex: 0.85,
   },
-  flexFill: {
-    flex: 1,
-  },
-  portraitContainer: {
-    flex: 1,
-    flexDirection: 'column',
+  logSection: {
+    flex: 0.55,
+    minHeight: 88,
   },
   portraitEditor: {
-    flex: 1.5,
-  },
-  portraitViewport: {
-    flex: 0.8,
-    minHeight: 240,
+    flex: 1.1,
   },
   portraitIO: {
-    flex: 0.8,
+    flex: 0.75,
   },
   portraitConsole: {
-    flex: 1,
+    flex: 0.55,
+    minHeight: 72,
   },
 });

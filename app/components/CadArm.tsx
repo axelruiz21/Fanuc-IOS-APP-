@@ -153,7 +153,7 @@ export const CadArm: React.FC<{
           ]}
         >
           <sphereGeometry args={[0.02, 10, 10]} />
-          <meshStandardMaterial color="#29b6f6" emissive="#1565c0" emissiveIntensity={0.4} />
+          <meshStandardMaterial color="#F4F1EC" emissive="#C5A572" emissiveIntensity={0.25} />
         </mesh>
       )}
     </>

@@ -80,8 +80,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.hint}>
-        Edit P[n] then Apply, or Teach the last successful MOVE pose. rx,ry,rz are XYZ RPY
-        degrees, not FANUC WPR.
+        Apply or teach. rx ry rz are XYZ RPY degrees, not FANUC WPR.
       </Text>
       <View style={styles.chips}>
         {POSITION_INDEXES.map((index) => (
@@ -123,7 +122,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
           <Text style={styles.buttonText}>Apply P[{selected}]</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, styles.teachButton, !currentPosition && styles.buttonDisabled]}
+          style={[styles.button, !currentPosition && styles.buttonDisabled]}
           onPress={() => onTeachCurrent(selected)}
           disabled={!currentPosition}
           accessibilityRole="button"
@@ -144,7 +143,7 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 11,
     color: theme.muted,
-    fontStyle: 'italic',
+    lineHeight: 16,
   },
   chips: {
     flexDirection: 'row',
@@ -152,18 +151,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chip: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'transparent',
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     minHeight: 36,
     justifyContent: 'center',
   },
   chipSelected: {
-    borderColor: theme.accent,
-    backgroundColor: theme.currentLine,
+    borderBottomColor: theme.rule,
   },
   chipText: {
     color: theme.muted,
@@ -171,8 +167,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   chipTextSelected: {
-    color: theme.currentLineText,
-    fontWeight: '700',
+    color: theme.text,
   },
   fields: {
     flexDirection: 'row',
@@ -185,19 +180,19 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: theme.muted,
-    fontSize: 10,
+    fontSize: 9,
     marginBottom: 4,
-    fontWeight: '700',
+    letterSpacing: 1.6,
+    fontWeight: '500',
   },
   input: {
     backgroundColor: theme.bg,
-    borderWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: theme.border,
-    borderRadius: 4,
     color: theme.text,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingVertical: 8,
-    minHeight: 44,
+    minHeight: 40,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 13,
   },
@@ -207,23 +202,20 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    backgroundColor: theme.step,
-    borderRadius: 6,
-    minHeight: 44,
+    minHeight: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  teachButton: {
-    backgroundColor: theme.play,
+    alignItems: 'flex-start',
+    paddingHorizontal: 4,
   },
   buttonDisabled: {
-    opacity: 0.45,
+    opacity: 0.28,
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 12,
+    color: theme.text,
+    fontWeight: '500',
+    fontSize: 11,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
   },
   error: {
     color: theme.danger,
