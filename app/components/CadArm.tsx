@@ -108,18 +108,25 @@ export const CadArm: React.FC<{
         const entries = await Promise.all(
           CAD_LINK_IDS.map(async (id) => {
             const geometry = await loadGeometry(MESH_MODULES[id]);
+            if (cancelled) {
+              geometry.dispose();
+              throw new Error('cad-load-cancelled');
+            }
             loaded.push(geometry);
             return [id, geometry] as const;
           })
         );
-        if (!cancelled) {
-          setGeometries(Object.fromEntries(entries) as Record<CadLinkId, THREE.BufferGeometry>);
+        if (cancelled) {
+          return;
         }
+        setGeometries(Object.fromEntries(entries) as Record<CadLinkId, THREE.BufferGeometry>);
       } catch (error) {
-        console.warn('CAD meshes failed to load; using cylinder arm', error);
-        if (!cancelled) {
-          setFailed(true);
+        if (cancelled) {
+          return;
         }
+        console.warn('CAD meshes failed to load; using cylinder arm', error);
+        loaded.forEach((geometry) => geometry.dispose());
+        setFailed(true);
       }
     })();
     return () => {
