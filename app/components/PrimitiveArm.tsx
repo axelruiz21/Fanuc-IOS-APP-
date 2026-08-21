@@ -34,9 +34,15 @@ const Bone: React.FC<{
   }
 
   return (
-    <mesh position={position} quaternion={quaternion}>
-      <cylinderGeometry args={[radius, radius, length, 14]} />
-      <meshStandardMaterial color={color} metalness={0.35} roughness={0.45} />
+    <mesh position={position} quaternion={quaternion} castShadow receiveShadow>
+      <cylinderGeometry args={[radius, radius, length, 20]} />
+      <meshPhysicalMaterial
+        color={color}
+        metalness={0.22}
+        roughness={0.38}
+        clearcoat={0.4}
+        clearcoatRoughness={0.3}
+      />
     </mesh>
   );
 };
@@ -61,15 +67,15 @@ export const PrimitiveArm: React.FC<{
         />
       ))}
       {points.map((p, i) => (
-        <mesh key={`joint-${i}`} position={p}>
-          <sphereGeometry args={[i === 0 ? 0.032 : 0.022, 12, 12]} />
-          <meshStandardMaterial color="#1a1a1a" metalness={0.6} roughness={0.35} />
+        <mesh key={`joint-${i}`} position={p} castShadow>
+          <sphereGeometry args={[i === 0 ? 0.032 : 0.022, 16, 16]} />
+          <meshPhysicalMaterial color="#1a1a1a" metalness={0.65} roughness={0.32} />
         </mesh>
       ))}
       {tip && (
         <mesh position={tip}>
           <sphereGeometry args={[0.028, 14, 14]} />
-          <meshStandardMaterial color="#43a047" metalness={0.5} roughness={0.3} />
+          <meshPhysicalMaterial color="#2A2A2A" metalness={0.55} roughness={0.36} />
         </mesh>
       )}
       {currentPosition && (
@@ -81,7 +87,7 @@ export const PrimitiveArm: React.FC<{
           ]}
         >
           <sphereGeometry args={[0.02, 10, 10]} />
-          <meshStandardMaterial color="#F4F1EC" emissive="#C5A572" emissiveIntensity={0.25} />
+          <meshStandardMaterial color="#F4F1EC" roughness={0.35} metalness={0.2} />
         </mesh>
       )}
     </>

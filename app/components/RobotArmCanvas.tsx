@@ -14,6 +14,7 @@ import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
 import { OrbitDriver } from './OrbitDriver';
+import { StudioEnvironment, StudioGround, StudioLights } from './RobotStudio';
 
 export type Position = CartesianPose;
 
@@ -30,7 +31,7 @@ const AxisShaft: React.FC<{ color: string; rotation: [number, number, number] }>
   rotation,
 }) => (
   <group rotation={rotation}>
-    <mesh position={[0, EOAT_AXIS_LEN / 2, 0]}>
+    <mesh position={[0, EOAT_AXIS_LEN / 2, 0]} castShadow={false}>
       <cylinderGeometry args={[EOAT_AXIS_RAD, EOAT_AXIS_RAD, EOAT_AXIS_LEN, 10]} />
       <meshBasicMaterial color={color} />
     </mesh>
@@ -63,9 +64,9 @@ const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
   return (
     <>
       <color attach="background" args={[theme.bg]} />
-      <ambientLight intensity={0.22} />
-      <directionalLight position={[2.2, 3.4, 1.6]} intensity={0.55} color="#F4F1EC" />
-      <directionalLight position={[-2.4, 0.8, -1.2]} intensity={0.18} color="#C5A572" />
+      <StudioEnvironment />
+      <StudioLights />
+      <StudioGround />
       <Grid
         args={[4.8, 4.8]}
         cellSize={0.2}
@@ -96,10 +97,15 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
     <View style={styles.wrap} accessibilityLabel="Robot arm 3D viewport">
       <OrbitCapture orbitRef={orbitRef}>
         <Canvas
-          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 45, near: 0.05, far: 20 }}
+          shadows
+          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 40, near: 0.05, far: 20 }}
           style={styles.canvas}
-          dpr={[1, 2]}
-          gl={{ antialias: true }}
+          dpr={[1, 1.75]}
+          gl={{
+            antialias: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.12,
+          }}
         >
           <OrbitDriver orbitRef={orbitRef} />
           <RobotScene joints={joints} currentPosition={currentPosition} />

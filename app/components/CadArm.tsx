@@ -7,14 +7,15 @@ import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { mergeVertices, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CartesianPose, Joints } from '../kinematics';
 import {
-  CAD_LINK_COLORS,
   CAD_LINK_IDS,
   cadLinkTransform,
   mat4ToThreeSetArgs,
   type CadLinkId,
 } from '../viewer/cadFrames';
+import { CadLinkMaterial } from './CadLinkMaterial';
 import { PrimitiveArm } from './PrimitiveArm';
 
 const MESH_MODULES: Record<CadLinkId, number> = {
@@ -58,9 +59,15 @@ async function loadGeometry(moduleId: number): Promise<THREE.BufferGeometry> {
   if (!uri) {
     throw new Error('CAD mesh URI missing');
   }
-  const geom = new STLLoader().parse(await arrayBufferFromUri(uri));
-  geom.computeVertexNormals();
-  return geom;
+  const parsed = new STLLoader().parse(await arrayBufferFromUri(uri));
+  const indexed = mergeVertices(parsed, 1e-4);
+  parsed.dispose();
+  const creased = toCreasedNormals(indexed, (50 * Math.PI) / 180);
+  if (creased !== indexed) {
+    indexed.dispose();
+  }
+  creased.computeBoundingSphere();
+  return creased;
 }
 
 const CadLinkMesh: React.FC<{
@@ -81,12 +88,8 @@ const CadLinkMesh: React.FC<{
   }, [id, joints]);
 
   return (
-    <mesh ref={ref} geometry={geometry}>
-      <meshStandardMaterial
-        color={CAD_LINK_COLORS[id]}
-        metalness={0.28}
-        roughness={0.52}
-      />
+    <mesh ref={ref} geometry={geometry} castShadow receiveShadow>
+      <CadLinkMaterial id={id} />
     </mesh>
   );
 };
@@ -153,7 +156,7 @@ export const CadArm: React.FC<{
           ]}
         >
           <sphereGeometry args={[0.02, 10, 10]} />
-          <meshStandardMaterial color="#F4F1EC" emissive="#C5A572" emissiveIntensity={0.25} />
+          <meshStandardMaterial color="#F4F1EC" roughness={0.35} metalness={0.2} />
         </mesh>
       )}
     </>
