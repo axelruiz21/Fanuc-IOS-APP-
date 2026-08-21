@@ -87,7 +87,20 @@ export function StudioEnvironment(): null {
         if (!uri) {
           throw new Error('HDR URI missing');
         }
-        const parsed = new RGBELoader().parse(await arrayBufferFromUri(uri));
+        const texData = new RGBELoader().parse(await arrayBufferFromUri(uri));
+        const parsed = new THREE.DataTexture(
+          texData.data,
+          texData.width,
+          texData.height,
+          THREE.RGBAFormat,
+          texData.type
+        );
+        parsed.colorSpace = THREE.LinearSRGBColorSpace;
+        parsed.minFilter = THREE.LinearFilter;
+        parsed.magFilter = THREE.LinearFilter;
+        parsed.generateMipmaps = false;
+        parsed.flipY = true;
+        parsed.needsUpdate = true;
         const pmrem = new THREE.PMREMGenerator(gl);
         hdrEnv = pmrem.fromEquirectangular(parsed).texture;
         parsed.dispose();
