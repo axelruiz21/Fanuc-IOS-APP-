@@ -13,6 +13,7 @@ import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
 import { OrbitDriver } from './OrbitDriver';
+import { RobotEffects } from './RobotEffects';
 import { StudioEnvironment, StudioLights } from './RobotStudio';
 import { WorkCell } from './WorkCell';
 
@@ -77,6 +78,7 @@ const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
         <CadArm joints={joints} currentPosition={currentPosition} />
         <EoatAxes joints={joints} />
       </group>
+      <RobotEffects />
     </>
   );
 };
