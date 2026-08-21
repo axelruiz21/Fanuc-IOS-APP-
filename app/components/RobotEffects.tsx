@@ -10,6 +10,7 @@ import React, {
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing';
+import * as THREE from 'three';
 
 type EffectsErrorHandler = (error: unknown, componentStack?: string | null) => void;
 
@@ -69,7 +70,11 @@ function GuardedEffectComposer({
   }, [onError]);
 
   return (
-      <EffectComposer ref={composerRef} multisampling={0} enableNormalPass>
+      <EffectComposer
+        ref={composerRef}
+        multisampling={0}
+        frameBufferType={THREE.UnsignedByteType}
+      >
         <N8AO aoRadius={0.12} intensity={1.15} />
         <Bloom luminanceThreshold={1.15} intensity={0.22} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />

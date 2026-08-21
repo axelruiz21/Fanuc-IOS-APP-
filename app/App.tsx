@@ -3,7 +3,14 @@
  * FANUC iOS Teach Pendant MVP — editorial night chrome
  */
 
-import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react';
+import {
+  Component,
+  lazy,
+  Suspense,
+  useCallback,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import {
   View,
   StyleSheet,
@@ -20,11 +27,30 @@ import { ExecutionControls } from './components/ExecutionControls';
 import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
-import { RobotArmViewer } from './components/RobotArm';
 import { LessonPicker } from './components/LessonPicker';
 import { editorHighlightIndex } from './editor/programCounter';
 import { theme, type } from './theme';
 import type { InterpreterState } from './utils/interpreter';
+
+function Viewport2DArm({
+  currentPosition,
+}: {
+  joints?: unknown;
+  currentPosition?: InterpreterState['currentPosition'];
+}) {
+  return (
+    <Viewport3D currentPosition={currentPosition ?? undefined} isLoading={false} />
+  );
+}
+
+const RobotArmViewer = lazy(() =>
+  import('./components/RobotArm')
+    .then((mod) => ({ default: mod.RobotArmViewer }))
+    .catch((error: unknown) => {
+      console.warn('3D viewport failed to load; using 2D fallback', error);
+      return { default: Viewport2DArm };
+    })
+);
 
 class SceneErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -48,6 +74,14 @@ class SceneErrorBoundary extends Component<
   }
 }
 
+function ArmSuspenseFallback() {
+  return (
+    <View style={styles.armFallback} accessibilityLabel="Loading 3D arm">
+      <Text style={type.label}>Loading arm</Text>
+    </View>
+  );
+}
+
 function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
   return (
     <SceneErrorBoundary
@@ -58,10 +92,12 @@ function SceneViewport({ interpreterState }: { interpreterState: InterpreterStat
         />
       }
     >
-      <RobotArmViewer
-        joints={interpreterState.currentJoints}
-        currentPosition={interpreterState.currentPosition}
-      />
+      <Suspense fallback={<ArmSuspenseFallback />}>
+        <RobotArmViewer
+          joints={interpreterState.currentJoints}
+          currentPosition={interpreterState.currentPosition}
+        />
+      </Suspense>
     </SceneErrorBoundary>
   );
 }
@@ -242,6 +278,13 @@ const styles = StyleSheet.create({
     flex: 1.15,
     minHeight: 220,
     backgroundColor: theme.bg,
+  },
+  armFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.bg,
+    minHeight: 220,
   },
   heroLabel: {
     position: 'absolute',

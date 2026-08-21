@@ -2,7 +2,7 @@
  * LR Mate 200iD viewer. Driven by IK joints; does not solve IK.
  * CAD STLs when they load; cylinders otherwise. Platform Canvas from FiberCanvas.
  */
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { lazy, Suspense, useLayoutEffect, useRef } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import * as THREE from 'three';
 import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
@@ -13,9 +13,21 @@ import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
 import { OrbitDriver } from './OrbitDriver';
-import { RobotEffects } from './RobotEffects';
 import { StudioEnvironment, StudioLights } from './RobotStudio';
 import { WorkCell } from './WorkCell';
+
+function DisabledEffects(): null {
+  return null;
+}
+
+const RobotEffects = lazy(() =>
+  import('./RobotEffects')
+    .then((mod) => ({ default: mod.RobotEffects }))
+    .catch((error: unknown) => {
+      console.warn('RobotEffects failed to load; continuing without post', error);
+      return { default: DisabledEffects };
+    })
+);
 
 export type Position = CartesianPose;
 
@@ -78,7 +90,9 @@ const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
         <CadArm joints={joints} currentPosition={currentPosition} />
         <EoatAxes joints={joints} />
       </group>
-      <RobotEffects />
+      <Suspense fallback={null}>
+        <RobotEffects />
+      </Suspense>
     </>
   );
 };
