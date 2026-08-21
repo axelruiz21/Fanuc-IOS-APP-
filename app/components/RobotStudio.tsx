@@ -101,10 +101,14 @@ export function StudioEnvironment(): null {
         parsed.generateMipmaps = false;
         parsed.flipY = true;
         parsed.needsUpdate = true;
-        const pmrem = new THREE.PMREMGenerator(gl);
-        hdrEnv = pmrem.fromEquirectangular(parsed).texture;
-        parsed.dispose();
-        pmrem.dispose();
+        let pmrem: THREE.PMREMGenerator | null = null;
+        try {
+          pmrem = new THREE.PMREMGenerator(gl);
+          hdrEnv = pmrem.fromEquirectangular(parsed).texture;
+        } finally {
+          parsed.dispose();
+          pmrem?.dispose();
+        }
         if (cancelled) {
           hdrEnv.dispose();
           hdrEnv = null;
