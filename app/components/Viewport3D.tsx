@@ -24,11 +24,13 @@ export interface Position {
 export interface Viewport3DProps {
   currentPosition?: Position | null;
   isLoading?: boolean;
+  hideTitle?: boolean;
 }
 
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   currentPosition,
   isLoading = false,
+  hideTitle = false,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const centerX = size.width / 2;
@@ -106,10 +108,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Arm</Text>
-        {isLoading && <Text style={styles.loadingText}>Rendering...</Text>}
-      </View>
+      {!hideTitle && (
+        <View style={styles.header}>
+          <Text style={styles.title}>Arm</Text>
+          {isLoading && <Text style={styles.loadingText}>Rendering...</Text>}
+        </View>
+      )}
 
       <View
         style={styles.viewportArea}

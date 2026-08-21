@@ -1,7 +1,14 @@
 /**
  * Factory IBL + optional web HDR. No CDN. Renderer does not solve IK.
  */
-import React, { useEffect, useLayoutEffect } from 'react';
+import React, {
+  Component,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
@@ -14,9 +21,25 @@ import { createFactoryEnvironmentScene } from '../viewer/factoryEnvironment';
 
 const SHADOW_MAP = Platform.OS === 'web' ? 2048 : 1024;
 const IS_WEB = Platform.OS === 'web';
-const HDR_MODULE: number | null = IS_WEB
-  ? require('../../assets/env/machine_shop_01_2k.hdr')
-  : null;
+
+class OptionalPass extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('Optional studio pass disabled', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 function base64ToArrayBuffer(b64: string): ArrayBuffer {
   const binary = globalThis.atob(b64);
@@ -60,28 +83,31 @@ export function StudioEnvironment(): null {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = IS_WEB ? 0.98 : 1.04;
-    if (IS_WEB) {
-      RectAreaLightUniformsLib.init();
-    }
-    const factoryMap = bakeFactory(gl);
-    const previous = scene.environment;
-    scene.environment = factoryMap;
     scene.background = new THREE.Color('#0A0908');
+    const previous = scene.environment;
+    let factoryMap: THREE.Texture | null = null;
+    try {
+      factoryMap = bakeFactory(gl);
+      scene.environment = factoryMap;
+    } catch (error) {
+      console.warn('Factory IBL failed; continuing without environment map', error);
+    }
     return () => {
       scene.environment = previous;
-      factoryMap.dispose();
+      factoryMap?.dispose();
     };
   }, [gl, scene]);
 
   useEffect(() => {
-    if (!IS_WEB || HDR_MODULE == null) {
+    if (!IS_WEB) {
       return;
     }
     let cancelled = false;
     let hdrEnv: THREE.Texture | null = null;
     (async () => {
       try {
-        const asset = Asset.fromModule(HDR_MODULE);
+        const { machineShopHdrModule } = await import('./loadMachineShopHdr');
+        const asset = Asset.fromModule(machineShopHdrModule());
         await asset.downloadAsync();
         const uri = asset.localUri ?? asset.uri;
         if (!uri) {
@@ -135,9 +161,27 @@ export function StudioEnvironment(): null {
 }
 
 export function StudioLights(): React.ReactElement {
+  const [areaLights, setAreaLights] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!IS_WEB) {
+      return;
+    }
+    try {
+      RectAreaLightUniformsLib.init();
+      setAreaLights(true);
+    } catch (error) {
+      console.warn('Rect area lights unavailable', error);
+    }
+  }, []);
+
   return (
     <>
-      {IS_WEB ? <SoftShadows samples={12} size={18} focus={0.42} /> : null}
+      {IS_WEB ? (
+        <OptionalPass>
+          <SoftShadows samples={12} size={18} focus={0.42} />
+        </OptionalPass>
+      ) : null}
       <hemisphereLight args={['#8FA0B0', '#1A1612', IS_WEB ? 0.12 : 0.28]} />
       <directionalLight
         castShadow
@@ -159,7 +203,7 @@ export function StudioLights(): React.ReactElement {
         intensity={IS_WEB ? 0.18 : 0.32}
         color="#A9B7C6"
       />
-      {IS_WEB ? (
+      {IS_WEB && areaLights ? (
         <>
           <rectAreaLight
             position={[-0.85, 2.68, -0.9]}
@@ -178,7 +222,7 @@ export function StudioLights(): React.ReactElement {
             color="#FFF4DC"
           />
         </>
-      ) : (
+      ) : IS_WEB ? null : (
         <spotLight
           position={[0.2, 4.0, 0.5]}
           intensity={0.7}

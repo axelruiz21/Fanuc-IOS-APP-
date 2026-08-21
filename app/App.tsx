@@ -29,18 +29,37 @@ import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
 import { LessonPicker } from './components/LessonPicker';
 import { editorHighlightIndex } from './editor/programCounter';
+import { forward } from './kinematics';
 import { theme, type } from './theme';
 import type { InterpreterState } from './utils/interpreter';
 
+function fallbackPose(state: InterpreterState): InterpreterState['currentPosition'] | undefined {
+  if (state.currentPosition) {
+    return state.currentPosition;
+  }
+  try {
+    return forward(state.currentJoints);
+  } catch {
+    return undefined;
+  }
+}
+
 function Viewport2DArm({
   currentPosition,
+  joints,
 }: {
-  joints?: unknown;
+  joints?: InterpreterState['currentJoints'];
   currentPosition?: InterpreterState['currentPosition'];
 }) {
-  return (
-    <Viewport3D currentPosition={currentPosition ?? undefined} isLoading={false} />
-  );
+  let pose = currentPosition ?? undefined;
+  if (!pose && joints) {
+    try {
+      pose = forward(joints);
+    } catch {
+      pose = undefined;
+    }
+  }
+  return <Viewport3D currentPosition={pose} isLoading={false} hideTitle />;
 }
 
 const RobotArmViewer = lazy(() =>
@@ -87,8 +106,9 @@ function SceneViewport({ interpreterState }: { interpreterState: InterpreterStat
     <SceneErrorBoundary
       fallback={
         <Viewport3D
-          currentPosition={interpreterState.currentPosition}
+          currentPosition={fallbackPose(interpreterState)}
           isLoading={false}
+          hideTitle
         />
       }
     >

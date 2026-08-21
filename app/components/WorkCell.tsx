@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Platform } from 'react-native';
-import { ContactShadows, MeshReflectorMaterial } from '@react-three/drei';
+import { ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { getStudioMaps } from '../viewer/studioMaps';
 import { theme } from '../theme';
@@ -115,22 +115,7 @@ function FactoryFloor(): React.ReactElement {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
       <planeGeometry args={[8, 8]} />
-      {IS_WEB ? (
-        <MeshReflectorMaterial
-          {...common}
-          mirror={0.12}
-          blur={[280, 80]}
-          resolution={512}
-          mixBlur={0.65}
-          mixStrength={1.35}
-          depthScale={0.85}
-          minDepthThreshold={0.35}
-          maxDepthThreshold={1.25}
-          reflectorOffset={0.02}
-        />
-      ) : (
-        <meshStandardMaterial {...common} />
-      )}
+      <meshStandardMaterial {...common} />
     </mesh>
   );
 }

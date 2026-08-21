@@ -65,4 +65,41 @@ describe('vendored machine-shop HDR', () => {
     );
     expect(canvas).toMatch(/import\(\s*['"]\.\/RobotEffects['"]\s*\)/);
   });
+
+  it('does not require the HDR from RobotStudio module scope', () => {
+    const studio = fs.readFileSync(
+      path.join(ROOT, 'app/components/RobotStudio.tsx'),
+      'utf8'
+    );
+    expect(studio).not.toContain("require('../../assets/env/machine_shop_01_2k.hdr')");
+    expect(studio).toMatch(/import\(\s*['"]\.\/loadMachineShopHdr['"]\s*\)/);
+    expect(studio).toContain('Factory IBL failed');
+  });
+
+  it('loads the HDR from an isolated module so Metro parse failure cannot blank the canvas', () => {
+    const loader = fs.readFileSync(
+      path.join(ROOT, 'app/components/loadMachineShopHdr.ts'),
+      'utf8'
+    );
+    expect(loader).toContain("require('../../assets/env/machine_shop_01_2k.hdr')");
+  });
+
+  it('keeps a standard floor on web so a reflector target cannot replace the hero', () => {
+    const cell = fs.readFileSync(
+      path.join(ROOT, 'app/components/WorkCell.tsx'),
+      'utf8'
+    );
+    expect(cell).not.toContain('MeshReflectorMaterial');
+    expect(cell).toContain('meshStandardMaterial');
+  });
+
+  it('hides the nested Arm title on the 2D fallback', () => {
+    const app = fs.readFileSync(path.join(ROOT, 'app/App.tsx'), 'utf8');
+    const viewport = fs.readFileSync(
+      path.join(ROOT, 'app/components/Viewport3D.tsx'),
+      'utf8'
+    );
+    expect(viewport).toContain('hideTitle');
+    expect(app).toContain('hideTitle');
+  });
 });
