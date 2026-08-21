@@ -7,7 +7,8 @@ import React, {
   type ErrorInfo,
   type ReactNode,
 } from 'react';
-import { Bloom, EffectComposer, N8AO, SMAA, Vignette } from '@react-three/postprocessing';
+import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing';
 
 type EffectsErrorHandler = (error: unknown, componentStack?: string | null) => void;
@@ -68,12 +69,13 @@ function GuardedEffectComposer({
   }, [onError]);
 
   return (
-    <EffectComposer ref={composerRef} multisampling={0} enableNormalPass>
-      <N8AO aoRadius={0.12} intensity={1.15} />
-      <Bloom luminanceThreshold={1.15} intensity={0.22} mipmapBlur />
-      <Vignette offset={0.35} darkness={0.42} />
-      <SMAA />
-    </EffectComposer>
+      <EffectComposer ref={composerRef} multisampling={0} enableNormalPass>
+        <N8AO aoRadius={0.12} intensity={1.15} />
+        <Bloom luminanceThreshold={1.15} intensity={0.22} mipmapBlur />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        <Vignette offset={0.35} darkness={0.42} />
+        <SMAA />
+      </EffectComposer>
   );
 }
 

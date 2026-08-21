@@ -26,4 +26,13 @@ describe('vendored machine-shop HDR', () => {
     expect(native).not.toContain('@react-three/postprocessing');
     expect(native).toContain('return null');
   });
+
+  it('puts a ToneMapping pass in the web composer', () => {
+    const web = fs.readFileSync(
+      path.join(ROOT, 'app/components/RobotEffects.tsx'),
+      'utf8'
+    );
+    expect(web).toContain('ToneMapping');
+    expect(web).toContain('ACES_FILMIC');
+  });
 });
