@@ -1,16 +1,55 @@
 /**
- * Factory IBL + lights. No CDN HDR. Renderer does not solve IK.
+ * Factory IBL + optional web HDR. No CDN. Renderer does not solve IK.
  */
-import React, { useLayoutEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import { Platform } from 'react-native';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 import { SoftShadows } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { createFactoryEnvironmentScene } from '../viewer/factoryEnvironment';
 
 const SHADOW_MAP = Platform.OS === 'web' ? 2048 : 1024;
 const IS_WEB = Platform.OS === 'web';
+const HDR_MODULE: number | null = IS_WEB
+  ? require('../../assets/env/machine_shop_01_2k.hdr')
+  : null;
+
+function base64ToArrayBuffer(b64: string): ArrayBuffer {
+  const binary = globalThis.atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function arrayBufferFromUri(uri: string): Promise<ArrayBuffer> {
+  try {
+    const res = await fetch(uri);
+    if (res.ok) {
+      return await res.arrayBuffer();
+    }
+  } catch {
+    // file:// fallback
+  }
+  const b64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return base64ToArrayBuffer(b64);
+}
+
+function bakeFactory(gl: THREE.WebGLRenderer): THREE.Texture {
+  const pmrem = new THREE.PMREMGenerator(gl);
+  const { scene: room, dispose } = createFactoryEnvironmentScene();
+  const envMap = pmrem.fromScene(room, 0.04).texture;
+  dispose();
+  pmrem.dispose();
+  return envMap;
+}
 
 export function StudioEnvironment(): null {
   const { gl, scene } = useThree();
@@ -20,22 +59,58 @@ export function StudioEnvironment(): null {
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.04;
+    gl.toneMappingExposure = IS_WEB ? 0.98 : 1.04;
     if (IS_WEB) {
       RectAreaLightUniformsLib.init();
     }
-
-    const pmrem = new THREE.PMREMGenerator(gl);
-    const { scene: room, dispose } = createFactoryEnvironmentScene();
-    const envMap = pmrem.fromScene(room, 0.04).texture;
-    dispose();
+    const factoryMap = bakeFactory(gl);
     const previous = scene.environment;
-    scene.environment = envMap;
+    scene.environment = factoryMap;
     scene.background = new THREE.Color('#0A0908');
     return () => {
       scene.environment = previous;
-      envMap.dispose();
-      pmrem.dispose();
+      factoryMap.dispose();
+    };
+  }, [gl, scene]);
+
+  useEffect(() => {
+    if (!IS_WEB || HDR_MODULE == null) {
+      return;
+    }
+    let cancelled = false;
+    let hdrEnv: THREE.Texture | null = null;
+    (async () => {
+      try {
+        const asset = Asset.fromModule(HDR_MODULE);
+        await asset.downloadAsync();
+        const uri = asset.localUri ?? asset.uri;
+        if (!uri) {
+          throw new Error('HDR URI missing');
+        }
+        const parsed = new RGBELoader().parse(await arrayBufferFromUri(uri));
+        const pmrem = new THREE.PMREMGenerator(gl);
+        hdrEnv = pmrem.fromEquirectangular(parsed).texture;
+        parsed.dispose();
+        pmrem.dispose();
+        if (cancelled) {
+          hdrEnv.dispose();
+          hdrEnv = null;
+          return;
+        }
+        const old = scene.environment;
+        scene.environment = hdrEnv;
+        if (old && old !== hdrEnv) {
+          old.dispose();
+        }
+      } catch (error) {
+        console.warn('HDR IBL failed; keeping factory IBL', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (hdrEnv) {
+        hdrEnv.dispose();
+      }
     };
   }, [gl, scene]);
 
@@ -46,11 +121,11 @@ export function StudioLights(): React.ReactElement {
   return (
     <>
       {IS_WEB ? <SoftShadows samples={12} size={18} focus={0.42} /> : null}
-      <hemisphereLight args={['#8FA0B0', '#1A1612', 0.28]} />
+      <hemisphereLight args={['#8FA0B0', '#1A1612', IS_WEB ? 0.12 : 0.28]} />
       <directionalLight
         castShadow
         position={[2.8, 5.6, 2.1]}
-        intensity={1.55}
+        intensity={IS_WEB ? 1.2 : 1.55}
         color="#FFF3E0"
         shadow-mapSize={[SHADOW_MAP, SHADOW_MAP]}
         shadow-bias={-0.00016}
@@ -62,7 +137,11 @@ export function StudioLights(): React.ReactElement {
         shadow-camera-top={2.4}
         shadow-camera-bottom={-2.4}
       />
-      <directionalLight position={[-3.4, 1.8, -1.6]} intensity={0.32} color="#A9B7C6" />
+      <directionalLight
+        position={[-3.4, 1.8, -1.6]}
+        intensity={IS_WEB ? 0.18 : 0.32}
+        color="#A9B7C6"
+      />
       {IS_WEB ? (
         <>
           <rectAreaLight
@@ -70,7 +149,7 @@ export function StudioLights(): React.ReactElement {
             rotation={[-Math.PI / 2, 0, 0]}
             width={1.2}
             height={0.12}
-            intensity={6.5}
+            intensity={2.4}
             color="#FFF4DC"
           />
           <rectAreaLight
@@ -78,7 +157,7 @@ export function StudioLights(): React.ReactElement {
             rotation={[-Math.PI / 2, 0, 0]}
             width={1.2}
             height={0.12}
-            intensity={5.5}
+            intensity={2.0}
             color="#FFF4DC"
           />
         </>
