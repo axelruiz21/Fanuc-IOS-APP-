@@ -17,4 +17,13 @@ describe('vendored machine-shop HDR', () => {
     const src = fs.readFileSync(path.join(ROOT, 'metro.config.js'), 'utf8');
     expect(src).toContain("'hdr'");
   });
+
+  it('keeps postprocessing out of the native effects file', () => {
+    const native = fs.readFileSync(
+      path.join(ROOT, 'app/components/RobotEffects.native.tsx'),
+      'utf8'
+    );
+    expect(native).not.toContain('@react-three/postprocessing');
+    expect(native).toContain('return null');
+  });
 });
