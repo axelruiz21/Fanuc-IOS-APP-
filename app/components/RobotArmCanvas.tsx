@@ -2,17 +2,27 @@
  * LR Mate 200iD viewer. Driven by IK joints; does not solve IK.
  * CAD STLs when they load; cylinders otherwise. Platform Canvas from FiberCanvas.
  */
-import React, { lazy, Suspense, useLayoutEffect, useRef } from 'react';
+import React, {
+  Component,
+  lazy,
+  Suspense,
+  useLayoutEffect,
+  useRef,
+  type ErrorInfo,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import * as THREE from 'three';
 import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
-import { DEFAULT_CAMERA_POSITION, DEFAULT_ORBIT } from '../viewer/orbit';
+import { DEFAULT_CAMERA_POSITION, DEFAULT_ORBIT, type OrbitState } from '../viewer/orbit';
 import { cadLinkTransform, mat4ToThreeSetArgs } from '../viewer/cadFrames';
 import { theme } from '../theme';
 import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
 import { OrbitDriver } from './OrbitDriver';
+import { PrimitiveArm } from './PrimitiveArm';
 import { StudioEnvironment, StudioLights } from './RobotStudio';
 import { WorkCell } from './WorkCell';
 
@@ -28,6 +38,47 @@ const RobotEffects = lazy(() =>
       return { default: DisabledEffects };
     })
 );
+
+class StudioExtrasBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('Studio extras disabled', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
+class ArmBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('CAD arm failed; using cylinder arm', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 export type Position = CartesianPose;
 
@@ -79,23 +130,36 @@ const EoatAxes: React.FC<{ joints: Joints }> = ({ joints }) => {
   );
 };
 
-const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
+function RobotScene({
+  joints,
+  currentPosition,
+  orbitRef,
+}: RobotArmProps & { orbitRef: MutableRefObject<OrbitState> }) {
   return (
     <>
-      <color attach="background" args={['#0A0908']} />
-      <StudioEnvironment />
-      <StudioLights />
-      <WorkCell />
+      <color attach="background" args={['#1A1612']} />
+      <hemisphereLight args={['#F4EFE6', '#3A332C', 0.7]} />
+      <directionalLight position={[2.4, 5.2, 2.2]} intensity={1.7} color="#FFF6E8" castShadow />
+      <StudioExtrasBoundary>
+        <StudioEnvironment />
+        <StudioLights />
+        <WorkCell />
+        <OrbitDriver orbitRef={orbitRef} />
+        <Suspense fallback={null}>
+          <RobotEffects />
+        </Suspense>
+      </StudioExtrasBoundary>
       <group rotation={[-Math.PI / 2, 0, 0]}>
-        <CadArm joints={joints} currentPosition={currentPosition} />
-        <EoatAxes joints={joints} />
+        <ArmBoundary
+          fallback={<PrimitiveArm joints={joints} currentPosition={currentPosition} />}
+        >
+          <CadArm joints={joints} currentPosition={currentPosition} />
+          <EoatAxes joints={joints} />
+        </ArmBoundary>
       </group>
-      <Suspense fallback={null}>
-        <RobotEffects />
-      </Suspense>
     </>
   );
-};
+}
 
 export const RobotArmViewer: React.FC<RobotArmProps> = ({
   joints = HOME_JOINTS,
@@ -110,16 +174,9 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
           camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 38, near: 0.05, far: 28 }}
           style={styles.canvas}
           dpr={Platform.OS === 'web' ? [1, 2] : [1, 1.5]}
-          gl={{
-            antialias: true,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.04,
-            outputColorSpace: THREE.SRGBColorSpace,
-            powerPreference: 'high-performance',
-          }}
+          gl={{ antialias: true, alpha: false }}
         >
-          <OrbitDriver orbitRef={orbitRef} />
-          <RobotScene joints={joints} currentPosition={currentPosition} />
+          <RobotScene joints={joints} currentPosition={currentPosition} orbitRef={orbitRef} />
         </Canvas>
       </OrbitCapture>
     </View>
@@ -133,11 +190,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
     minHeight: 220,
+    position: 'relative',
   },
   canvas: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: theme.bg,
   },
 });

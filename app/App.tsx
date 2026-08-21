@@ -5,8 +5,6 @@
 
 import {
   Component,
-  lazy,
-  Suspense,
   useCallback,
   type ErrorInfo,
   type ReactNode,
@@ -27,6 +25,7 @@ import { ExecutionControls } from './components/ExecutionControls';
 import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
+import { RobotArmViewer } from './components/RobotArm';
 import { LessonPicker } from './components/LessonPicker';
 import { editorHighlightIndex } from './editor/programCounter';
 import { forward } from './kinematics';
@@ -62,15 +61,6 @@ function Viewport2DArm({
   return <Viewport3D currentPosition={pose} isLoading={false} hideTitle />;
 }
 
-const RobotArmViewer = lazy(() =>
-  import('./components/RobotArm')
-    .then((mod) => ({ default: mod.RobotArmViewer }))
-    .catch((error: unknown) => {
-      console.warn('3D viewport failed to load; using 2D fallback', error);
-      return { default: Viewport2DArm };
-    })
-);
-
 class SceneErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { failed: boolean }
@@ -93,32 +83,23 @@ class SceneErrorBoundary extends Component<
   }
 }
 
-function ArmSuspenseFallback() {
-  return (
-    <View style={styles.armFallback} accessibilityLabel="Loading 3D arm">
-      <Text style={type.label}>Loading arm</Text>
-    </View>
-  );
-}
-
 function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
   return (
-    <SceneErrorBoundary
-      fallback={
-        <Viewport3D
-          currentPosition={fallbackPose(interpreterState)}
-          isLoading={false}
-          hideTitle
-        />
-      }
-    >
-      <Suspense fallback={<ArmSuspenseFallback />}>
+    <View style={styles.scene}>
+      <SceneErrorBoundary
+        fallback={
+          <Viewport2DArm
+            currentPosition={fallbackPose(interpreterState)}
+            joints={interpreterState.currentJoints}
+          />
+        }
+      >
         <RobotArmViewer
           joints={interpreterState.currentJoints}
           currentPosition={interpreterState.currentPosition}
         />
-      </Suspense>
-    </SceneErrorBoundary>
+      </SceneErrorBoundary>
+    </View>
   );
 }
 
@@ -294,19 +275,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg,
     minWidth: 280,
   },
-  portraitHero: {
-    flex: 1.15,
-    minHeight: 220,
-    backgroundColor: theme.bg,
-  },
-  armFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.bg,
-    minHeight: 220,
-  },
-  heroLabel: {
+      portraitHero: {
+        flex: 1.15,
+        minHeight: 220,
+        backgroundColor: theme.bg,
+      },
+      scene: {
+        flex: 1,
+        minHeight: 220,
+      },
+      heroLabel: {
     position: 'absolute',
     top: 16,
     left: 20,

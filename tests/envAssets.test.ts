@@ -46,13 +46,12 @@ describe('vendored machine-shop HDR', () => {
     expect(web).not.toContain('enableNormalPass');
   });
 
-  it('lazy-loads the 3D viewer so a WebGL chunk failure cannot blank the pendant', () => {
+  it('mounts the 3D viewer from the main bundle so Expo web does not depend on an async chunk', () => {
     const app = fs.readFileSync(path.join(ROOT, 'app/App.tsx'), 'utf8');
-    expect(app).not.toMatch(
+    expect(app).toMatch(
       /import\s*\{[^}]*RobotArmViewer[^}]*\}\s*from\s*['"]\.\/components\/RobotArm['"]/
     );
-    expect(app).toMatch(/import\(\s*['"]\.\/components\/RobotArm['"]\s*\)/);
-    expect(app).toContain('Loading arm');
+    expect(app).not.toMatch(/import\(\s*['"]\.\/components\/RobotArm['"]\s*\)/);
   });
 
   it('lazy-loads RobotEffects so a postprocessing import failure cannot blank the canvas', () => {
@@ -101,5 +100,46 @@ describe('vendored machine-shop HDR', () => {
     );
     expect(viewport).toContain('hideTitle');
     expect(app).toContain('hideTitle');
+  });
+
+  it('does not require STL binaries from CadArm module scope', () => {
+    const cad = fs.readFileSync(path.join(ROOT, 'app/components/CadArm.tsx'), 'utf8');
+    expect(cad).not.toMatch(/require\('.*\.stl'\)/);
+    expect(cad).toMatch(/import\(\s*['"]\.\/loadCadMeshes['"]\s*\)/);
+  });
+
+  it('loads CAD STLs from an isolated module', () => {
+    const loader = fs.readFileSync(
+      path.join(ROOT, 'app/components/loadCadMeshes.ts'),
+      'utf8'
+    );
+    expect(loader).toContain('base_link.stl');
+    expect(loader).toContain('link_6.stl');
+  });
+
+  it('keeps a 3D arm on screen if shop extras throw', () => {
+    const canvas = fs.readFileSync(
+      path.join(ROOT, 'app/components/RobotArmCanvas.tsx'),
+      'utf8'
+    );
+    expect(canvas).toContain('Studio extras disabled');
+    expect(canvas).toContain('PrimitiveArm');
+  });
+
+  it('lights the cylinder fallback with standard materials so missing IBL cannot hide the arm', () => {
+    const primitive = fs.readFileSync(
+      path.join(ROOT, 'app/components/PrimitiveArm.tsx'),
+      'utf8'
+    );
+    expect(primitive).toContain('meshStandardMaterial');
+    expect(primitive).not.toContain('meshPhysicalMaterial');
+  });
+
+  it('gives the WebGL canvas a positioned box so the web renderer can measure it', () => {
+    const canvas = fs.readFileSync(
+      path.join(ROOT, 'app/components/RobotArmCanvas.tsx'),
+      'utf8'
+    );
+    expect(canvas).toContain('absoluteFillObject');
   });
 });
