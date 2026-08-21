@@ -10,7 +10,7 @@ import React, {
 import { Bloom, EffectComposer, N8AO, SMAA, Vignette } from '@react-three/postprocessing';
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing';
 
-type EffectsErrorHandler = (error: unknown, componentStack?: string) => void;
+type EffectsErrorHandler = (error: unknown, componentStack?: string | null) => void;
 
 class EffectsBoundary extends Component<
   { onError: EffectsErrorHandler; children: ReactNode },
