@@ -60,4 +60,43 @@ describe('procedural work-cell maps', () => {
     }
     expect(distinct).toBeGreaterThan(8);
   });
+
+  it('adds a scratch layer that changes the normal map', () => {
+    const withScratch = paintNormal(SIZE, { scratches: true });
+    const without = paintNormal(SIZE, { scratches: false });
+    expect(Buffer.from(withScratch).equals(Buffer.from(without))).toBe(false);
+  });
+
+  it('keeps both scratch modes as non-flat normals', () => {
+    for (const scratches of [true, false]) {
+      const nrm = paintNormal(SIZE, { scratches });
+      const seen = new Set<string>();
+      for (let i = 0; i < nrm.length; i += 4) {
+        seen.add(`${nrm[i]},${nrm[i + 1]},${nrm[i + 2]}`);
+        if (seen.size > 8) break;
+      }
+      expect(seen.size).toBeGreaterThan(8);
+    }
+  });
+
+  it('spreads paint roughness instead of a flat 0.30', () => {
+    const data = paintRoughness(SIZE);
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      min = Math.min(min, data[i]);
+      max = Math.max(max, data[i]);
+    }
+    expect(max - min).toBeGreaterThanOrEqual(40);
+  });
+
+  it('does not emit a single gray for brushed metal', () => {
+    const data = brushedMetalRoughness(SIZE);
+    const seen = new Set<number>();
+    for (let i = 0; i < data.length; i += 4) {
+      seen.add(data[i]);
+      if (seen.size > 4) break;
+    }
+    expect(seen.size).toBeGreaterThan(4);
+  });
 });

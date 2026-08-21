@@ -132,7 +132,10 @@ export function concreteRoughness(size: number): Uint8Array {
   return data;
 }
 
-export function paintNormal(size: number): Uint8Array {
+export type PaintNormalOptions = { scratches?: boolean };
+
+export function paintNormal(size: number, opts: PaintNormalOptions = {}): Uint8Array {
+  const scratches = opts.scratches !== false;
   const data = alloc(size);
   const strength = 1.6;
   for (let y = 0; y < size; y += 1) {
@@ -140,12 +143,16 @@ export function paintNormal(size: number): Uint8Array {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
       const eps = 1 / size;
-      const hL = fbm((u - eps) * 28, v * 28, 63);
-      const hR = fbm((u + eps) * 28, v * 28, 63);
-      const hD = fbm(u * 28, (v - eps) * 28, 63);
-      const hU = fbm(u * 28, (v + eps) * 28, 63);
-      const nx = (hL - hR) * strength;
-      const ny = (hD - hU) * strength;
+      const height = (uu: number, vv: number): number => {
+        let h = fbm(uu * 28, vv * 28, 63);
+        if (scratches) {
+          const streak = valueNoise(uu * 72, vv * 9, 201);
+          h += Math.max(0, streak - 0.84) * 1.8;
+        }
+        return h;
+      };
+      const nx = (height(u - eps, v) - height(u + eps, v)) * strength;
+      const ny = (height(u, v - eps) - height(u, v + eps)) * strength;
       const nz = 1;
       const len = Math.hypot(nx, ny, nz) || 1;
       const i = pixelIndex(size, x, y);
@@ -164,8 +171,9 @@ export function paintRoughness(size: number): Uint8Array {
     for (let x = 0; x < size; x += 1) {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
-      const speckle = fbm(u * 22, v * 22, 77);
-      const c = clampByte((0.26 + speckle * 0.22) * 255);
+      const speckle = fbm(u * 18, v * 18, 77);
+      const wear = fbm(u * 5.5, v * 5.5, 91);
+      const c = clampByte((0.22 + speckle * 0.18 + wear * 0.15) * 255);
       const i = pixelIndex(size, x, y);
       data[i] = c;
       data[i + 1] = c;
@@ -183,7 +191,9 @@ export function brushedMetalRoughness(size: number): Uint8Array {
       const u = (x + 0.5) / size;
       const v = (y + 0.5) / size;
       const stroke = valueNoise(u * 4, v * 90, 101);
-      const c = clampByte((0.22 + stroke * 0.35) * 255);
+      const blotch = fbm(u * 5, v * 5, 131);
+      const fingerprint = blotch > 0.62 ? 0.2 : 0;
+      const c = clampByte((0.22 + stroke * 0.35 + fingerprint) * 255);
       const i = pixelIndex(size, x, y);
       data[i] = c;
       data[i + 1] = c;
