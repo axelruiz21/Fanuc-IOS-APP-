@@ -1,28 +1,37 @@
 /**
- * In-memory studio IBL + lights + floor. No CDN HDR. Renderer does not solve IK.
+ * Factory IBL + lights. No CDN HDR. Renderer does not solve IK.
  */
 import React, { useLayoutEffect } from 'react';
 import { Platform } from 'react-native';
-import { ContactShadows } from '@react-three/drei';
+import { SoftShadows } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { theme } from '../theme';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { createFactoryEnvironmentScene } from '../viewer/factoryEnvironment';
 
 const SHADOW_MAP = Platform.OS === 'web' ? 2048 : 1024;
+const IS_WEB = Platform.OS === 'web';
 
 export function StudioEnvironment(): null {
   const { gl, scene } = useThree();
 
   useLayoutEffect(() => {
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.04;
+    if (IS_WEB) {
+      RectAreaLightUniformsLib.init();
+    }
+
     const pmrem = new THREE.PMREMGenerator(gl);
-    const room = new RoomEnvironment();
+    const { scene: room, dispose } = createFactoryEnvironmentScene();
     const envMap = pmrem.fromScene(room, 0.04).texture;
-    room.dispose();
+    dispose();
     const previous = scene.environment;
     scene.environment = envMap;
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.12;
+    scene.background = new THREE.Color('#0A0908');
     return () => {
       scene.environment = previous;
       envMap.dispose();
@@ -36,56 +45,53 @@ export function StudioEnvironment(): null {
 export function StudioLights(): React.ReactElement {
   return (
     <>
-      <hemisphereLight args={['#A8B4C0', '#1C1612', 0.42]} />
+      {IS_WEB ? <SoftShadows samples={12} size={18} focus={0.42} /> : null}
+      <hemisphereLight args={['#8FA0B0', '#1A1612', 0.28]} />
       <directionalLight
         castShadow
-        position={[3.1, 5.4, 2.6]}
-        intensity={1.45}
-        color="#FFF4E6"
+        position={[2.8, 5.6, 2.1]}
+        intensity={1.55}
+        color="#FFF3E0"
         shadow-mapSize={[SHADOW_MAP, SHADOW_MAP]}
-        shadow-bias={-0.00018}
-        shadow-normalBias={0.022}
-        shadow-camera-near={0.4}
-        shadow-camera-far={16}
-        shadow-camera-left={-1.8}
-        shadow-camera-right={1.8}
-        shadow-camera-top={1.8}
-        shadow-camera-bottom={-1.8}
+        shadow-bias={-0.00016}
+        shadow-normalBias={0.02}
+        shadow-camera-near={0.5}
+        shadow-camera-far={18}
+        shadow-camera-left={-2.4}
+        shadow-camera-right={2.4}
+        shadow-camera-top={2.4}
+        shadow-camera-bottom={-2.4}
       />
-      <directionalLight position={[-2.8, 1.4, -2.2]} intensity={0.28} color="#C5A572" />
-      <spotLight
-        position={[-0.2, 4.2, 0.6]}
-        intensity={0.55}
-        color="#F4F1EC"
-        angle={0.55}
-        penumbra={0.85}
-        distance={12}
-      />
-    </>
-  );
-}
-
-export function StudioGround(): React.ReactElement {
-  return (
-    <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]} receiveShadow>
-        <circleGeometry args={[3.4, 80]} />
-        <meshStandardMaterial
-          color="#12110F"
-          metalness={0.18}
-          roughness={0.62}
-          envMapIntensity={0.55}
+      <directionalLight position={[-3.4, 1.8, -1.6]} intensity={0.32} color="#A9B7C6" />
+      {IS_WEB ? (
+        <>
+          <rectAreaLight
+            position={[-0.85, 2.68, -0.9]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            width={1.2}
+            height={0.12}
+            intensity={6.5}
+            color="#FFF4DC"
+          />
+          <rectAreaLight
+            position={[0.95, 2.68, 0.35]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            width={1.2}
+            height={0.12}
+            intensity={5.5}
+            color="#FFF4DC"
+          />
+        </>
+      ) : (
+        <spotLight
+          position={[0.2, 4.0, 0.5]}
+          intensity={0.7}
+          color="#F4F1EC"
+          angle={0.62}
+          penumbra={0.8}
+          distance={14}
         />
-      </mesh>
-      <ContactShadows
-        position={[0, 0.001, 0]}
-        opacity={0.48}
-        scale={5.5}
-        blur={2.6}
-        far={2.4}
-        color="#000000"
-      />
-      <fog attach="fog" args={[theme.bg, 5.5, 14]} />
+      )}
     </>
   );
 }

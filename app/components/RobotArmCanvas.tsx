@@ -3,8 +3,7 @@
  * CAD STLs when they load; cylinders otherwise. Platform Canvas from FiberCanvas.
  */
 import React, { useLayoutEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Grid } from '@react-three/drei';
+import { Platform, View, StyleSheet } from 'react-native';
 import * as THREE from 'three';
 import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
 import { DEFAULT_CAMERA_POSITION, DEFAULT_ORBIT } from '../viewer/orbit';
@@ -14,7 +13,8 @@ import { CadArm } from './CadArm';
 import { Canvas } from './FiberCanvas';
 import { OrbitCapture } from './OrbitCapture';
 import { OrbitDriver } from './OrbitDriver';
-import { StudioEnvironment, StudioGround, StudioLights } from './RobotStudio';
+import { StudioEnvironment, StudioLights } from './RobotStudio';
+import { WorkCell } from './WorkCell';
 
 export type Position = CartesianPose;
 
@@ -32,8 +32,14 @@ const AxisShaft: React.FC<{ color: string; rotation: [number, number, number] }>
 }) => (
   <group rotation={rotation}>
     <mesh position={[0, EOAT_AXIS_LEN / 2, 0]} castShadow={false}>
-      <cylinderGeometry args={[EOAT_AXIS_RAD, EOAT_AXIS_RAD, EOAT_AXIS_LEN, 10]} />
-      <meshBasicMaterial color={color} />
+      <cylinderGeometry args={[EOAT_AXIS_RAD, EOAT_AXIS_RAD, EOAT_AXIS_LEN, 12]} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={0.55}
+        roughness={0.42}
+        metalness={0.18}
+      />
     </mesh>
   </group>
 );
@@ -63,23 +69,10 @@ const EoatAxes: React.FC<{ joints: Joints }> = ({ joints }) => {
 const RobotScene: React.FC<RobotArmProps> = ({ joints, currentPosition }) => {
   return (
     <>
-      <color attach="background" args={[theme.bg]} />
+      <color attach="background" args={['#0A0908']} />
       <StudioEnvironment />
       <StudioLights />
-      <StudioGround />
-      <Grid
-        args={[4.8, 4.8]}
-        cellSize={0.2}
-        cellThickness={1.85}
-        cellColor="#ffffff"
-        sectionSize={1.2}
-        sectionThickness={2.6}
-        sectionColor="#ffffff"
-        fadeDistance={8}
-        fadeStrength={0.25}
-        infiniteGrid={false}
-        side={THREE.DoubleSide}
-      />
+      <WorkCell />
       <group rotation={[-Math.PI / 2, 0, 0]}>
         <CadArm joints={joints} currentPosition={currentPosition} />
         <EoatAxes joints={joints} />
@@ -98,13 +91,15 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
       <OrbitCapture orbitRef={orbitRef}>
         <Canvas
           shadows
-          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 40, near: 0.05, far: 20 }}
+          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 38, near: 0.05, far: 28 }}
           style={styles.canvas}
-          dpr={[1, 1.75]}
+          dpr={Platform.OS === 'web' ? [1, 2] : [1, 1.5]}
           gl={{
             antialias: true,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.12,
+            toneMappingExposure: 1.04,
+            outputColorSpace: THREE.SRGBColorSpace,
+            powerPreference: 'high-performance',
           }}
         >
           <OrbitDriver orbitRef={orbitRef} />

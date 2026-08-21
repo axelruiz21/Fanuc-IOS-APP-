@@ -1,43 +1,54 @@
 import React from 'react';
+import * as THREE from 'three';
 import type { CadLinkId } from '../viewer/cadFrames';
 import { CAD_LINK_COLORS } from '../viewer/cadFrames';
+import { getStudioMaps } from '../viewer/studioMaps';
+
+const PAINT_NORMAL_SCALE = new THREE.Vector2(0.22, 0.22);
 
 export function CadLinkMaterial({ id }: { id: CadLinkId }): React.ReactElement {
   const color = CAD_LINK_COLORS[id];
+  const maps = getStudioMaps();
+
   if (id === 'base_link') {
     return (
       <meshPhysicalMaterial
         color={color}
-        metalness={0.78}
-        roughness={0.34}
-        envMapIntensity={1.2}
-        clearcoat={0.22}
-        clearcoatRoughness={0.42}
+        roughnessMap={maps.metalRoughness}
+        metalness={0.86}
+        roughness={0.4}
+        envMapIntensity={1.15}
+        clearcoat={0.18}
+        clearcoatRoughness={0.45}
       />
     );
   }
+
   if (id === 'link_6') {
     return (
       <meshPhysicalMaterial
         color={color}
-        metalness={0.62}
-        roughness={0.38}
-        envMapIntensity={0.95}
-        clearcoat={0.12}
-        clearcoatRoughness={0.55}
+        roughnessMap={maps.metalRoughness}
+        metalness={0.9}
+        roughness={0.28}
+        envMapIntensity={1.05}
       />
     );
   }
+
   return (
     <meshPhysicalMaterial
       color={color}
-      metalness={0.06}
-      roughness={0.28}
-      envMapIntensity={1.08}
-      clearcoat={0.72}
-      clearcoatRoughness={0.16}
-      sheen={0.18}
-      sheenColor="#E8C04A"
+      roughnessMap={maps.paintRoughness}
+      normalMap={maps.paintNormal}
+      normalScale={PAINT_NORMAL_SCALE}
+      metalness={0.08}
+      roughness={0.3}
+      envMapIntensity={1.0}
+      clearcoat={1}
+      clearcoatRoughness={0.1}
+      ior={1.5}
+      reflectivity={0.5}
     />
   );
 }

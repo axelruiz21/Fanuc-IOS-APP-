@@ -38,10 +38,10 @@ const Bone: React.FC<{
       <cylinderGeometry args={[radius, radius, length, 20]} />
       <meshPhysicalMaterial
         color={color}
-        metalness={0.22}
-        roughness={0.38}
-        clearcoat={0.4}
-        clearcoatRoughness={0.3}
+        metalness={0.1}
+        roughness={0.32}
+        clearcoat={1}
+        clearcoatRoughness={0.12}
       />
     </mesh>
   );
@@ -86,8 +86,8 @@ export const PrimitiveArm: React.FC<{
             currentPosition.z / 1000,
           ]}
         >
-          <sphereGeometry args={[0.02, 10, 10]} />
-          <meshStandardMaterial color="#F4F1EC" roughness={0.35} metalness={0.2} />
+          <sphereGeometry args={[0.016, 16, 16]} />
+          <meshPhysicalMaterial color="#C5A572" metalness={0.85} roughness={0.28} />
         </mesh>
       )}
     </>

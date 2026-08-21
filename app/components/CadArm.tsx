@@ -15,6 +15,7 @@ import {
   mat4ToThreeSetArgs,
   type CadLinkId,
 } from '../viewer/cadFrames';
+import { CAD_CREASE_RAD, applyBoxUVs } from '../viewer/stlShading';
 import { CadLinkMaterial } from './CadLinkMaterial';
 import { PrimitiveArm } from './PrimitiveArm';
 
@@ -62,10 +63,11 @@ async function loadGeometry(moduleId: number): Promise<THREE.BufferGeometry> {
   const parsed = new STLLoader().parse(await arrayBufferFromUri(uri));
   const indexed = mergeVertices(parsed, 1e-4);
   parsed.dispose();
-  const creased = toCreasedNormals(indexed, (50 * Math.PI) / 180);
+  const creased = toCreasedNormals(indexed, CAD_CREASE_RAD);
   if (creased !== indexed) {
     indexed.dispose();
   }
+  applyBoxUVs(creased, 3.2);
   creased.computeBoundingSphere();
   return creased;
 }
@@ -155,8 +157,8 @@ export const CadArm: React.FC<{
             currentPosition.z / 1000,
           ]}
         >
-          <sphereGeometry args={[0.02, 10, 10]} />
-          <meshStandardMaterial color="#F4F1EC" roughness={0.35} metalness={0.2} />
+          <sphereGeometry args={[0.016, 16, 16]} />
+          <meshPhysicalMaterial color="#C5A572" metalness={0.85} roughness={0.28} />
         </mesh>
       )}
     </>
