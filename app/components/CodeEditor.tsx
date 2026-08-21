@@ -1,7 +1,5 @@
 /**
- * CodeEditor Component
- * FANUC program editor with syntax highlighting
- * Phase 2: UI Components
+ * FANUC program editor — editorial night
  */
 
 import React, { useCallback } from 'react';
@@ -14,26 +12,40 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { theme } from '../theme';
 
 export interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
   onSave?: (value: string) => void;
   readOnly?: boolean;
+  currentLine?: number | null;
 }
+
+const MONO = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
 
 interface LineNumberProps {
   lineCount: number;
+  currentLine?: number | null;
 }
 
-const LineNumbers: React.FC<LineNumberProps> = ({ lineCount }) => {
+const LineNumbers: React.FC<LineNumberProps> = ({ lineCount, currentLine }) => {
   return (
     <View style={styles.lineNumbers}>
-      {Array.from({ length: lineCount || 1 }, (_, i) => (
-        <Text key={i} style={styles.lineNumber}>
-          {i + 1}
-        </Text>
-      ))}
+      {Array.from({ length: lineCount || 1 }, (_, i) => {
+        const isCurrent = currentLine === i;
+        return (
+          <Text
+            key={i}
+            style={[styles.lineNumber, isCurrent && styles.lineNumberCurrent]}
+            accessibilityLabel={
+              isCurrent ? `Line ${i + 1}, current line` : `Line ${i + 1}`
+            }
+          >
+            {String(i + 1).padStart(2, '0')}
+          </Text>
+        );
+      })}
     </View>
   );
 };
@@ -42,6 +54,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
   onChange,
   readOnly = false,
+  currentLine = null,
 }) => {
   const lineCount = value.split('\n').length;
 
@@ -64,19 +77,20 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           showsHorizontalScrollIndicator={false}
         >
           <View style={styles.editorRow}>
-            <LineNumbers lineCount={lineCount} />
+            <LineNumbers lineCount={lineCount} currentLine={currentLine} />
             <TextInput
               style={[styles.input, readOnly && styles.inputReadOnly]}
               value={value}
               onChangeText={handleChange}
               multiline
               editable={!readOnly}
-              placeholderTextColor="#999"
-              placeholder={'; Enter FANUC program here\n\nMOVE P[1]\nDOUT OT[1]=ON\nWAIT 1.0\nEND'}
+              placeholderTextColor={theme.muted}
+              placeholder={'; program'}
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect={false}
               scrollEnabled={false}
+              accessibilityLabel="FANUC program editor"
             />
           </View>
         </ScrollView>
@@ -88,44 +102,50 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.panel,
   },
   editorContainer: {
     flex: 1,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 8,
     overflow: 'hidden',
-    margin: 8,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
   },
   editorRow: {
     flexDirection: 'row',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: theme.bg,
   },
   lineNumbers: {
-    backgroundColor: '#252526',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#3e3e42',
+    backgroundColor: theme.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: theme.border,
   },
   lineNumber: {
-    color: '#858585',
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: theme.muted,
+    fontSize: 11,
+    fontFamily: MONO,
     height: 18,
     lineHeight: 18,
   },
+  lineNumberCurrent: {
+    color: theme.currentLineText,
+  },
   input: {
     flex: 1,
-    color: '#d4d4d4',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#1e1e1e',
+    color: theme.text,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: theme.bg,
     fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: MONO,
     minWidth: 300,
+    lineHeight: 18,
   },
   inputReadOnly: {
-    backgroundColor: '#2d2d30',
+    opacity: 0.7,
   },
 });

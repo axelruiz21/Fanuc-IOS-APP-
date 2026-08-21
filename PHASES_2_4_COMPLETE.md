@@ -1,6 +1,7 @@
 # Phases 2-4: Complete FANUC iOS MVP Implementation ✅
 
-**Status:** PRODUCTION READY  
+**Status:** Historical notes — not production-ready. See README and `docs/superpowers/specs/`.  
+
 **Completion Date:** 2026-02-10  
 **Total Lines of Code:** 12,000+  
 **Components:** 15 complete, fully integrated  

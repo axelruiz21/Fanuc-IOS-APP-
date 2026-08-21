@@ -2,7 +2,8 @@
 
 **Mission:** Build FANUC iOS MVP end-to-end in parallel  
 **Timeline:** Single session execution  
-**Status:** ✅ **COMPLETE - PRODUCTION READY**  
+**Status:** Historical notes — not production-ready. See README.  
+
 
 ---
 

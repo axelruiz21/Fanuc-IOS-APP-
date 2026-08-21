@@ -2,7 +2,26 @@
 
 Educational robot programming simulator for iOS, built with React Native and TypeScript.
 
-**Status:** Phase 1 interpreter is the engine; repair required (tokenizer, control flow, tests). CALL is not implemented. Viewport is 2D.
+**Status:** Educational MVP — not production-ready. MOVE uses analytic LR Mate 200iD IK and fails on unreachable, singular, or joint-limit poses. Web **and native** 3D poses ROS-Industrial LR Mate 200iD CAD from `currentJoints` (native: expo-gl / R3F; cylinders if a mesh fails to load). Orbit: web damping + pan/zoom; native 1-finger rotate, pinch zoom, two-finger pan. If GL throws, the old 2D `Viewport3D` is the fallback. `rx,ry,rz` are XYZ Euler RPY, not FANUC WPR. Nested IF/FOR work. CALL runs registered subprograms (`CALL REACHABLE`, `CALL UNREACHABLE`); unknown names error.
+
+**Run (web):** `npm install && npm run start:web`
+
+**Run (iOS / Expo Go):** `npm install && npx expo start --ios` (needs Xcode / a device). The arm uses the same `currentJoints` as web.
+
+**EAS (device / simulator builds):** this repo has `eas.json` and bundle IDs `com.axelruiz.fanucpendant`. It does **not** ship an EAS `projectId` (that UUID comes from Expo after login). On a machine with Expo credentials:
+
+```bash
+npx eas-cli login
+npx eas-cli init          # writes extra.eas.projectId — commit that UUID
+npx eas-cli build --profile development --platform ios
+npx expo start --dev-client
+```
+
+Preview (internal, no dev client): `npx eas-cli build --profile preview --platform ios`. Production profile is store-shaped but **do not submit** unless you mean to. Cloud CI does not run EAS (no Apple/Google secrets).
+
+**Smoke:** (A) Lesson **1. Reachable MOVE** → Play and wait >1s (`WAIT 1.0`) — arm jumps P[1] then P[2]. (B) Lesson **2. Unreachable MOVE** → Play — error contains `unreachable`; the arm does not move. P[10] is seeded at 2000 mm. Teach: open the **P[]** tab, edit a point, Apply, or Teach current after a successful MOVE. The editor gutter highlights the current line while running, paused, or on error.
+
+If P[10] looks like the origin after a reload: `localStorage.clear()` and restart with `npm run start:web` (add `-- --clear` if Metro is stale).
 
 ---
 
@@ -401,13 +420,16 @@ npm run docs         # Generate documentation
 **A:** Document in `PHASE1_COMPLETE.md` as "Phase 2+ feature". Do NOT modify Phase 1 interpreter.
 
 ### Q: Where's the 3D viewer?
-**A:** Phase 4. Phase 1 just tracks position data. Phase 2 shows it in UI. Phase 4 renders in 3D.
+**A:** Web and native both mount `RobotArmViewer` from `currentJoints` (analytic IK). Visual meshes are ROS-Industrial LR Mate 200iD STLs; cylinders are the fallback if a mesh fails. Native uses `expo-gl` via `@react-three/fiber/native`. Orbit is damped on web and gesture-driven on native. If GL throws, `Viewport3D` (2D) is the fallback.
+
+### Q: How do I make an iOS build?
+**A:** `eas.json` is in the repo. Run `npx eas-cli init` after `eas login` so Expo can write a real `projectId`, then `npx eas-cli build --profile development --platform ios`. This environment cannot run a billed EAS build.
 
 ### Q: Can students save programs?
 **A:** Phase 3 (state management). Phase 1 interpreter is stateless (loads fresh each time).
 
 ### Q: What about subprograms?
-**A:** CALL throws `CALL is not implemented in this MVP`. Subprogram execution is out of scope for this repair.
+**A:** `CALL NAME` runs a program registered on the interpreter (`registerProgram`). Lesson ids `REACHABLE` and `UNREACHABLE` are seeded. Unknown names fail with `CALL: unknown program NAME` — never silent success. See `docs/superpowers/specs/2026-08-16-call-semantics.md`.
 
 ### Q: How fast is the interpreter?
 **A:** <100ms for typical 10-20 line programs. TBD: benchmark Phase 1 vs Phase 2 overhead.
@@ -437,12 +459,9 @@ npm run docs         # Generate documentation
 
 ## 🎉 Status
 
-✅ **Phase 1:** COMPLETE  
-⏳ **Phase 2:** Design phase  
-⏳ **Phase 3:** Pending Phase 2  
-⏳ **Phase 4:** Pending Phase 3  
+Educational MVP — **not production-ready**. Working path: edit a program, teach P[n], Play, watch the CAD arm, see illegal MOVE fail. Nested IF/FOR work. CALL runs registered programs (unknown names error). Native 3D uses expo-gl with the same kinematics (2D viewport only if GL throws). EAS profiles are configured; `eas init` still needs an Expo login.
 
-**Next milestone:** Phase 2 kickoff (2026-02-13)
+**Next:** local `eas init` / development build on a machine with Apple credentials; more lessons.
 
 ---
 

@@ -1,7 +1,6 @@
 /**
  * Viewport3D Component
- * 3D viewport placeholder for robot arm visualization
- * Phase 2 / Phase 4: 3D Rendering Integration
+ * Fallback XY projection when the GL tree throws.
  */
 
 import React, { useState } from 'react';
@@ -11,6 +10,7 @@ import {
   Text,
   ScrollView,
 } from 'react-native';
+import { theme, type } from '../theme';
 
 export interface Position {
   x: number;
@@ -24,11 +24,13 @@ export interface Position {
 export interface Viewport3DProps {
   currentPosition?: Position | null;
   isLoading?: boolean;
+  hideTitle?: boolean;
 }
 
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   currentPosition,
   isLoading = false,
+  hideTitle = false,
 }) => {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const centerX = size.width / 2;
@@ -45,9 +47,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const renderCoordinateDisplay = () => {
     if (!currentPosition) {
       return (
-        <Text style={styles.placeholderText}>
-          No position data. Run program to see position updates.
-        </Text>
+        <Text style={styles.placeholderText}>No pose</Text>
       );
     }
 
@@ -108,10 +108,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>3D Viewport (XY Projection)</Text>
-        {isLoading && <Text style={styles.loadingText}>Rendering...</Text>}
-      </View>
+      {!hideTitle && (
+        <View style={styles.header}>
+          <Text style={styles.title}>Arm</Text>
+          {isLoading && <Text style={styles.loadingText}>Rendering...</Text>}
+        </View>
+      )}
 
       <View
         style={styles.viewportArea}
@@ -156,40 +158,40 @@ const CoordinateRow: React.FC<CoordinateRowProps> = ({ label, value, unit }) => 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    margin: 8,
+    backgroundColor: theme.bg,
     overflow: 'hidden',
   },
   header: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    paddingHorizontal: 20,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   title: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#333',
+    ...type.label,
   },
   loadingText: {
     fontSize: 11,
-    color: '#999',
+    color: theme.muted,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   viewportArea: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: theme.bg,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 200,
   },
   placeholderText: {
-    fontSize: 13,
-    color: '#999',
+    fontSize: 11,
+    color: theme.muted,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
     textAlign: 'center',
     paddingHorizontal: 20,
   },
@@ -197,52 +199,51 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: theme.bg,
   },
   grid: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
   },
   origin: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2196F3',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.rule,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: -12,
-    marginTop: -12,
+    marginLeft: -4,
+    marginTop: -4,
     zIndex: 10,
   },
   originLabel: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
+    color: theme.bg,
+    fontSize: 0,
   },
   endEffector: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#4CAF50',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.text,
     zIndex: 15,
-    marginLeft: -10,
-    marginTop: -10,
+    marginLeft: -4,
+    marginTop: -4,
   },
   linkLine: {
     position: 'absolute',
-    height: 2,
-    backgroundColor: '#9C27B0',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.rule,
     zIndex: 5,
   },
   coordinatesPanel: {
-    backgroundColor: '#f5f5f5',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    maxHeight: 80,
+    backgroundColor: theme.panel,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.border,
+    maxHeight: 72,
   },
   coordinatesList: {
     flexDirection: 'row',
@@ -255,19 +256,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   coordinateLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: theme.muted,
   },
   coordinateValue: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2196F3',
+    color: theme.text,
     minWidth: 50,
     textAlign: 'right',
+    fontFamily: 'Menlo',
   },
   coordinateUnit: {
     fontSize: 10,
-    color: '#999',
+    color: theme.muted,
   },
 });

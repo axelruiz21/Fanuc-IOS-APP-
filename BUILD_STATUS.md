@@ -1,7 +1,8 @@
 # FANUC iOS MVP - Build Status Report
 
 **Build Date:** 2026-02-10  
-**Build Status:** ✅ **COMPLETE & VERIFIED**  
+**Build Status:** Historical notes — not production-ready. See README.  
+
 **Phases Completed:** 1, 2, 3, 4 (All)  
 
 ---

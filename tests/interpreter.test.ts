@@ -1,5 +1,6 @@
 // tests/interpreter.test.ts
 import { FANUCInterpreter } from '../app/utils/interpreter';
+import { A3, D3, forward } from '../app/kinematics';
 
 describe('FANUCInterpreter smoke', () => {
   it('executes MOVE P[1] to a taught position', async () => {
@@ -30,7 +31,7 @@ describe('tokenization via public commands', () => {
 describe('run loop', () => {
   it('keeps comment lines so PC matches the editor', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 5, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
     const program = `; comment\nMOVE P[1]\nEND`;
     const result = await vm.execute(program);
     expect(result.success).toBe(true);
@@ -83,15 +84,107 @@ describe('WAIT', () => {
 describe('FOR', () => {
   it('iterates and supports P[J]', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 10, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(2, { x: 20, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
-    vm.definePosition(3, { x: 30, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(3, { x: 100, y: 100, z: 100, rx: 0, ry: 0, rz: 0 });
     const result = await vm.execute(
       'PR[2]=0\nFOR J=1 TO 3\nPR[2]=PR[2]+1\nMOVE P[J]\nENDFOR\nEND'
     );
     expect(result.success).toBe(true);
     expect(result.state.registers.PR[2]).toBe(3);
-    expect(result.state.currentPosition?.x).toBe(30);
+    expect(result.state.currentPosition?.x).toBe(100);
+  });
+
+  it('nests FOR I inside FOR J without clobbering P[J]', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    const result = await vm.execute(`PR[4]=0
+FOR J=1 TO 2
+  FOR I=1 TO 2
+    PR[4]=PR[4]+1
+  ENDFOR
+  MOVE P[J]
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(4);
+    expect(result.state.registers.PR[2]).toBe(3);
+    expect(result.state.currentPosition?.x).toBe(150);
+  });
+
+  it('supports FOR PR[n] as the loop register', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[5]=0
+FOR PR[3]=1 TO 3
+  PR[5]=PR[5]+PR[3]
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[5]).toBe(6);
+    expect(result.state.registers.PR[3]).toBe(4);
+  });
+
+  it('runs IF inside FOR', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[4]=0
+FOR J=1 TO 3
+  IF (PR[1]>1)
+    PR[4]=PR[4]+10
+  ELSE
+    PR[4]=PR[4]+1
+  ENDIF
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(21);
+  });
+
+  it('skips a nested FOR when the outer IF is false', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[4]=0
+IF (PR[1]>50)
+  FOR J=1 TO 3
+    PR[4]=PR[4]+1
+  ENDFOR
+ELSE
+  PR[4]=9
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(9);
+  });
+
+  it('restores outer J after a nested FOR J so MOVE P[J] uses the outer index', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 0, ry: 0, rz: 0 });
+    const result = await vm.execute(`PR[4]=0
+FOR J=1 TO 2
+  FOR J=1 TO 2
+    PR[4]=PR[4]+1
+  ENDFOR
+  MOVE P[J]
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[4]).toBe(4);
+    expect(result.state.currentPosition?.x).toBe(150);
+  });
+
+  it('nests FOR K inside I inside J', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[5]=0
+FOR J=1 TO 2
+  FOR I=1 TO 2
+    FOR K=1 TO 2
+      PR[5]=PR[5]+1
+    ENDFOR
+  ENDFOR
+ENDFOR
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[5]).toBe(8);
   });
 });
 
@@ -112,6 +205,83 @@ describe('IF/ELSE', () => {
     );
     expect(result.success).toBe(true);
     expect(result.state.registers.PR[2]).toBe(2);
+  });
+
+  it('runs the outer ELSE when a nested IF sits in the THEN branch', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=10
+IF (PR[1]>50)
+  IF (PR[1]>0)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(3);
+  });
+
+  it('runs the inner ELSE when the outer IF is true', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=75
+IF (PR[1]>50)
+  IF (PR[1]>100)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(2);
+  });
+
+  it('runs nested THEN when both conditions are true', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=150
+IF (PR[1]>50)
+  IF (PR[1]>100)
+    PR[2]=1
+  ELSE
+    PR[2]=2
+  ENDIF
+ELSE
+  PR[2]=3
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(1);
+  });
+
+  it('runs a nested IF in the ELSE branch', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`PR[1]=10
+IF (PR[1]>50)
+  PR[2]=1
+ELSE
+  IF (PR[1]>5)
+    PR[2]=4
+  ELSE
+    PR[2]=5
+  ENDIF
+ENDIF
+END`);
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(4);
+  });
+
+  it('fails with Missing ENDIF when an IF is unclosed', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute(`IF (PR[1]=0)
+PR[2]=1
+END`);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Missing ENDIF/);
   });
 });
 
@@ -150,7 +320,7 @@ describe('continue() errors', () => {
 
     const resumed = await vm.continue();
     expect(resumed.success).toBe(false);
-    expect(resumed.error).toMatch(/not implemented/i);
+    expect(resumed.error).toMatch(/unknown program/i);
     expect(resumed.state.isRunning).toBe(false);
   });
 });
@@ -185,18 +355,136 @@ describe('expressions and snapshots', () => {
     expect(vm.getState().breakPoints.has(4)).toBe(true);
   });
 
-  it('rejects CALL as unimplemented', async () => {
+  it('rejects unknown CALL names instead of succeeding', async () => {
     const vm = new FANUCInterpreter();
     const result = await vm.execute('CALL LESSON2\nEND');
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/not implemented/i);
+    expect(result.error).toMatch(/unknown program/i);
+    expect(result.state.registers.PR[1]).toBe(0);
+  });
+
+  it('rejects CALL with no program name', async () => {
+    const vm = new FANUCInterpreter();
+    const result = await vm.execute('CALL\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/expected program name/i);
   });
 
   it('reads J speed after the position ref', async () => {
     const vm = new FANUCInterpreter();
-    vm.definePosition(1, { x: 1, y: 0, z: 0, rx: 0, ry: 0, rz: 0 });
+    vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
     const result = await vm.execute('J P[1] 40%\nEND');
     expect(result.success).toBe(true);
     expect(result.executionLog.join('\n')).toMatch(/40%/);
+  });
+});
+
+describe('MOVE inverse kinematics', () => {
+  const reachable = { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 };
+  const unreachable = { x: 2000, y: 0, z: 0, rx: 180, ry: 0, rz: 0 };
+
+  it('sets currentJoints on a reachable MOVE', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    const result = await vm.execute('MOVE P[1]\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.currentJoints).toHaveLength(6);
+    expect(result.state.currentJoints.some((q) => q !== 0)).toBe(true);
+    expect(result.executionLog.join('\n')).toMatch(/J1/);
+  });
+
+  it('fails unreachable MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, unreachable);
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/unreachable/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
+  });
+
+  it('fails singular MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    const singular = forward([0, 1.2, Math.atan2(A3, D3), 0, 0, 0]);
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, singular);
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/singular/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
+  });
+
+  it('fails joint_limit MOVE and leaves the previous pose and joints', async () => {
+    const vm = new FANUCInterpreter();
+    vm.definePosition(1, reachable);
+    vm.definePosition(2, { x: 80, y: 0, z: 330, rx: 0, ry: 0, rz: 180 });
+    const first = await vm.execute('MOVE P[1]\nEND');
+    expect(first.success).toBe(true);
+    const jointsAfterFirst = [...first.state.currentJoints];
+    const posAfterFirst = { ...first.state.currentPosition! };
+
+    const second = await vm.execute('MOVE P[2]\nEND');
+    expect(second.success).toBe(false);
+    expect(second.error).toMatch(/joint_limit/);
+    expect(second.state.currentPosition).toEqual(posAfterFirst);
+    expect(second.state.currentJoints).toEqual(jointsAfterFirst);
+  });
+});
+
+describe('CALL', () => {
+  it('runs a registered subprogram and continues the caller after END', async () => {
+    const vm = new FANUCInterpreter();
+    vm.registerProgram('SUB', 'PR[2]=7\nEND');
+    const result = await vm.execute('PR[1]=1\nCALL SUB\nPR[3]=9\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[1]).toBe(1);
+    expect(result.state.registers.PR[2]).toBe(7);
+    expect(result.state.registers.PR[3]).toBe(9);
+    expect(result.state.callStack).toEqual([]);
+    expect(result.executionLog.join('\n')).toMatch(/CALL SUB/);
+  });
+
+  it('does not run caller lines after a callee error', async () => {
+    const vm = new FANUCInterpreter();
+    vm.registerProgram('BAD', 'PR[101]=1\nEND');
+    const result = await vm.execute('CALL BAD\nPR[4]=1\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/PR index must be 1-100/);
+    expect(result.state.registers.PR[4]).toBe(0);
+    expect(result.state.callStack.length).toBeGreaterThan(0);
+    expect(result.state.callStack[0].programName).toBe('BAD');
+    expect(result.state.isRunning).toBe(false);
+  });
+
+  it('nests CALL and restores each caller PC', async () => {
+    const vm = new FANUCInterpreter();
+    vm.registerProgram('INNER', 'PR[2]=PR[2]+1\nEND');
+    vm.registerProgram('OUTER', 'CALL INNER\nPR[3]=3\nEND');
+    const result = await vm.execute('PR[2]=0\nCALL OUTER\nPR[4]=4\nEND');
+    expect(result.success).toBe(true);
+    expect(result.state.registers.PR[2]).toBe(1);
+    expect(result.state.registers.PR[3]).toBe(3);
+    expect(result.state.registers.PR[4]).toBe(4);
+  });
+
+  it('rejects a 9th nested CALL as stack overflow', async () => {
+    const vm = new FANUCInterpreter();
+    vm.registerProgram('RECUR', 'CALL RECUR\nEND');
+    const result = await vm.execute('CALL RECUR\nEND');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/stack overflow/i);
+    expect(result.state.isRunning).toBe(false);
   });
 });
