@@ -8,6 +8,8 @@ Educational robot programming simulator for iOS, built with React Native and Typ
 
 **Run (iOS / Expo Go):** `npm install && npx expo start --ios` (needs Xcode / a device). The arm uses the same `currentJoints` as web.
 
+**iOS Simulator caveat:** expo-gl's GLES support in the simulator is incomplete. Verified 2026-10-18 on an iPad Pro 11-inch (iOS 26.2) simulator in Expo Go: the app boots and the work cell renders, but `EXT_color_buffer_float` is unavailable (factory/HDR environment lighting cannot bake, so the scene is dim) and the CAD link materials render invisible while the EOAT triad shows. Treat the simulator as a UI smoke only; validate the native arm on a physical device. Web (`npm run start:web`) renders the full CAD arm, HDR lighting, and post stack.
+
 **EAS (device / simulator builds):** this repo has `eas.json` and bundle IDs `com.axelruiz.fanucpendant`. It does **not** ship an EAS `projectId` (that UUID comes from Expo after login). On a machine with Expo credentials:
 
 ```bash
