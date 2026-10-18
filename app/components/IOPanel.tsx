@@ -13,12 +13,19 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import type { Position } from '../utils/interpreter';
+import { theme } from '../theme';
+import { PositionPanel } from './PositionPanel';
 
 export interface IOPanelProps {
   digitalInputs: Record<number, boolean>;
   digitalOutputs: Record<number, boolean>;
   registers: Record<number, number>;
   onDigitalInputChange?: (index: number, value: boolean) => void;
+  positions?: Record<number, Position>;
+  currentPosition?: Position | null;
+  onDefinePosition?: (index: number, position: Position) => void;
+  onTeachCurrent?: (index: number) => void;
 }
 
 interface TabProps {
@@ -31,6 +38,9 @@ const Tab: React.FC<TabProps> = ({ label, isActive, onPress }) => (
   <TouchableOpacity
     style={[styles.tab, isActive && styles.tabActive]}
     onPress={onPress}
+    accessibilityRole="tab"
+    accessibilityState={{ selected: isActive }}
+    accessibilityLabel={label}
   >
     <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
       {label}
@@ -97,27 +107,38 @@ export const IOPanel: React.FC<IOPanelProps> = ({
   digitalOutputs,
   registers,
   onDigitalInputChange,
+  positions,
+  currentPosition = null,
+  onDefinePosition,
+  onTeachCurrent,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inputs' | 'outputs' | 'registers'>('inputs');
+  const [activeTab, setActiveTab] = useState<'inputs' | 'outputs' | 'registers' | 'positions'>('inputs');
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
+      <View style={styles.tabBar} accessibilityRole="tablist">
         <Tab
-          label="DI (Inputs)"
+          label="DI"
           isActive={activeTab === 'inputs'}
           onPress={() => setActiveTab('inputs')}
         />
         <Tab
-          label="DO (Outputs)"
+          label="DO"
           isActive={activeTab === 'outputs'}
           onPress={() => setActiveTab('outputs')}
         />
         <Tab
-          label="PR (Registers)"
+          label="PR"
           isActive={activeTab === 'registers'}
           onPress={() => setActiveTab('registers')}
         />
+        {positions && onDefinePosition && onTeachCurrent && (
+          <Tab
+            label="P[]"
+            isActive={activeTab === 'positions'}
+            onPress={() => setActiveTab('positions')}
+          />
+        )}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -163,12 +184,18 @@ export const IOPanel: React.FC<IOPanelProps> = ({
             ))}
           </View>
         )}
+        {activeTab === 'positions' && positions && onDefinePosition && onTeachCurrent && (
+          <PositionPanel
+            positions={positions}
+            currentPosition={currentPosition}
+            onDefinePosition={onDefinePosition}
+            onTeachCurrent={onTeachCurrent}
+          />
+        )}
       </ScrollView>
 
       {activeTab === 'inputs' && (
-        <Text style={styles.hint}>
-          Tap digital inputs to simulate ON/OFF
-        </Text>
+        <Text style={styles.hint}>Tap to drive inputs</Text>
       )}
     </View>
   );
@@ -177,96 +204,95 @@ export const IOPanel: React.FC<IOPanelProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    margin: 8,
+    backgroundColor: theme.panel,
     overflow: 'hidden',
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.border,
+    paddingHorizontal: 12,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
-    borderBottomWidth: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'transparent',
+    minHeight: 40,
+    justifyContent: 'center',
   },
   tabActive: {
-    borderBottomColor: '#2196F3',
+    borderBottomColor: theme.rule,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 1.6,
+    color: theme.muted,
   },
   tabTextActive: {
-    color: '#2196F3',
+    color: theme.text,
   },
   content: {
     flex: 1,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   registerGrid: {
-    gap: 12,
+    gap: 8,
   },
   ioItem: {
     width: '48%',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 40,
   },
   ioItemActive: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
+    borderColor: theme.rule,
   },
   ioItemOutput: {
-    opacity: 0.7,
+    opacity: 0.72,
   },
   ioItemDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   ioLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 11,
+    color: theme.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   ioIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#ddd',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.border,
   },
   ioIndicatorActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: theme.rule,
   },
   registerValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2196F3',
+    fontSize: 13,
+    color: theme.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   hint: {
-    fontSize: 11,
-    color: '#999',
-    paddingHorizontal: 12,
+    fontSize: 10,
+    color: theme.muted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
     paddingBottom: 8,
-    fontStyle: 'italic',
   },
 });

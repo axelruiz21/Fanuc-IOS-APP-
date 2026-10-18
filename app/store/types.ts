@@ -54,6 +54,8 @@ export interface AppActions {
 
   // Interpreter Control
   definePosition: (index: number, position: Position) => void;
+  teachCurrentPosition: (index: number) => void;
+  loadLesson: (id: string) => void;
   setDigitalInput: (index: number, value: boolean) => void;
   setRegister: (index: number, value: number) => void;
 

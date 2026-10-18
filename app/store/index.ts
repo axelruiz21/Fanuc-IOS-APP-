@@ -7,18 +7,10 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { FANUCInterpreter, Position } from '../utils/interpreter';
+import { getLesson, LESSONS, REACHABLE_PROGRAM } from '../lessons';
 import { AppStore } from './types';
 
-const INITIAL_PROGRAM = `; FANUC Teach Pendant Program
-; Define positions and execute movement
-
-MOVE P[1]
-DOUT OT[1]=ON
-WAIT 1.0
-MOVE P[2]
-DOUT OT[1]=OFF
-END
-`;
+const INITIAL_PROGRAM = REACHABLE_PROGRAM;
 
 const MAX_HISTORY = 50;
 
@@ -26,6 +18,10 @@ function createSeededInterpreter(): FANUCInterpreter {
   const vm = new FANUCInterpreter();
   vm.definePosition(1, { x: 100, y: 200, z: 300, rx: 0, ry: 0, rz: 0 });
   vm.definePosition(2, { x: 150, y: 250, z: 350, rx: 45, ry: 0, rz: 0 });
+  vm.definePosition(10, { x: 2000, y: 0, z: 0, rx: 180, ry: 0, rz: 0 });
+  for (const lesson of LESSONS) {
+    vm.registerProgram(lesson.id, lesson.program);
+  }
   return vm;
 }
 
@@ -130,9 +126,15 @@ export const useAppStore = create<AppStore>()(
         state.lastError = null;
       });
 
+      const interpreter = get().interpreter;
+      const poll = setInterval(() => {
+        set((s) => {
+          s.interpreterState = interpreter.getState();
+          s.executionLogs = interpreter.getExecutionLog();
+        });
+      }, 50);
       try {
-        const state = get();
-        const result = await state.interpreter.execute(state.program);
+        const result = await interpreter.execute(get().program);
 
         set((s) => {
           s.executionResult = result;
@@ -150,6 +152,8 @@ export const useAppStore = create<AppStore>()(
           state.lastError = message;
           state.errorTimestamp = Date.now();
         });
+      } finally {
+        clearInterval(poll);
       }
     },
 
@@ -170,9 +174,15 @@ export const useAppStore = create<AppStore>()(
         state.isPaused = false;
       });
 
+      const interpreter = get().interpreter;
+      const poll = setInterval(() => {
+        set((s) => {
+          s.interpreterState = interpreter.getState();
+          s.executionLogs = interpreter.getExecutionLog();
+        });
+      }, 50);
       try {
-        const state = get();
-        const result = await state.interpreter.continue();
+        const result = await interpreter.continue();
 
         set((s) => {
           s.executionResult = result;
@@ -190,6 +200,8 @@ export const useAppStore = create<AppStore>()(
           state.lastError = message;
           state.errorTimestamp = Date.now();
         });
+      } finally {
+        clearInterval(poll);
       }
     },
 
@@ -249,6 +261,30 @@ export const useAppStore = create<AppStore>()(
           state.errorTimestamp = Date.now();
         });
       }
+    },
+
+    teachCurrentPosition: (index: number) => {
+      const pose = get().interpreterState.currentPosition;
+      if (!pose) {
+        set((state) => {
+          state.lastError = 'No current pose to teach. Run MOVE first.';
+          state.errorTimestamp = Date.now();
+        });
+        return;
+      }
+      get().definePosition(index, pose);
+    },
+
+    loadLesson: (id: string) => {
+      const lesson = getLesson(id);
+      if (!lesson) {
+        set((state) => {
+          state.lastError = `Unknown lesson: ${id}`;
+          state.errorTimestamp = Date.now();
+        });
+        return;
+      }
+      get().setProgram(lesson.program);
     },
 
     setDigitalInput: (index: number, value: boolean) => {

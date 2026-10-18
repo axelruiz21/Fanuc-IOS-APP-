@@ -18,5 +18,8 @@ export type { ExecutionConsoleProps } from './ExecutionConsole';
 export { Viewport3D } from './Viewport3D';
 export type { Viewport3DProps, Position } from './Viewport3D';
 
-export { RobotArmViewer } from './RobotArm';
-export type { RobotArmProps, Position as RobotPosition } from './RobotArm';
+export { LessonPicker } from './LessonPicker';
+export type { LessonPickerProps } from './LessonPicker';
+
+export { PositionPanel } from './PositionPanel';
+export type { PositionPanelProps } from './PositionPanel';

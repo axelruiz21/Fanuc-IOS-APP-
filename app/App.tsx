@@ -1,16 +1,21 @@
 /**
  * Main Application Component
- * FANUC iOS Teach Pendant MVP
- * Phases 2-4: Complete Integration
+ * FANUC iOS Teach Pendant MVP — editorial night chrome
  */
 
-import React, { useCallback } from 'react';
+import {
+  Component,
+  useCallback,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import {
   View,
   StyleSheet,
   SafeAreaView,
   Platform,
   StatusBar,
+  Text,
   useWindowDimensions,
 } from 'react-native';
 import { useAppStore } from './store';
@@ -20,117 +25,96 @@ import { ExecutionControls } from './components/ExecutionControls';
 import { IOPanel } from './components/IOPanel';
 import { ExecutionConsole } from './components/ExecutionConsole';
 import { Viewport3D } from './components/Viewport3D';
+import { RobotArmViewer } from './components/RobotArm';
+import { LessonPicker } from './components/LessonPicker';
+import { editorHighlightIndex } from './editor/programCounter';
+import { forward } from './kinematics';
+import { theme, type } from './theme';
+import type { InterpreterState } from './utils/interpreter';
 
-/**
- * Landscape layout: Editor + 3D on left, IO + Console on right
- */
-const LandscapeLayout: React.FC = () => {
-  const {
-    program,
-    setProgram,
-    isRunning,
-    isPaused,
-    runProgram,
-    pauseExecution,
-    resumeExecution,
-    stepExecution,
-    resetExecution,
-    executionLogs,
-    interpreterState,
-    lastError,
-    addBreakpoint,
-  } = useAppStore();
+function fallbackPose(state: InterpreterState): InterpreterState['currentPosition'] | undefined {
+  if (state.currentPosition) {
+    return state.currentPosition;
+  }
+  try {
+    return forward(state.currentJoints);
+  } catch {
+    return undefined;
+  }
+}
 
-  const handlePlay = useCallback(() => {
-    runProgram();
-  }, [runProgram]);
-
-  const handlePause = useCallback(() => {
-    pauseExecution();
-  }, [pauseExecution]);
-
-  const handleResume = useCallback(async () => {
-    await resumeExecution();
-  }, [resumeExecution]);
-
-  const handleStep = useCallback(async () => {
-    await stepExecution();
-  }, [stepExecution]);
-
-  const handleReset = useCallback(() => {
-    resetExecution();
-  }, [resetExecution]);
-
-  const handleBreakpoint = useCallback(() => {
-    const currentLine = interpreterState.programCounter;
-    if (currentLine >= 0) {
-      addBreakpoint(currentLine);
+function Viewport2DArm({
+  currentPosition,
+  joints,
+}: {
+  joints?: InterpreterState['currentJoints'];
+  currentPosition?: InterpreterState['currentPosition'];
+}) {
+  let pose = currentPosition ?? undefined;
+  if (!pose && joints) {
+    try {
+      pose = forward(joints);
+    } catch {
+      pose = undefined;
     }
-  }, [interpreterState.programCounter, addBreakpoint]);
+  }
+  return <Viewport3D currentPosition={pose} isLoading={false} hideTitle />;
+}
 
+class SceneErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn('3D viewport failed; using 2D fallback', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+function SceneViewport({ interpreterState }: { interpreterState: InterpreterState }) {
   return (
-    <View style={styles.landscapeContainer}>
-      {/* Left Panel: Editor + 3D */}
-      <View style={styles.leftPanel}>
-        {/* Editor */}
-        <View style={styles.editorSection}>
-          <CodeEditor
-            value={program}
-            onChange={setProgram}
-            readOnly={isRunning && !isPaused}
+    <View style={styles.scene}>
+      <SceneErrorBoundary
+        fallback={
+          <Viewport2DArm
+            currentPosition={fallbackPose(interpreterState)}
+            joints={interpreterState.currentJoints}
           />
-        </View>
-
-        {/* 3D Viewport */}
-        <View style={styles.viewportSection}>
-          <Viewport3D
-            currentPosition={interpreterState.currentPosition}
-            isLoading={false}
-          />
-        </View>
-      </View>
-
-      {/* Right Panel: Controls + IO + Console */}
-      <View style={styles.rightPanel}>
-        {/* Execution Controls */}
-        <ExecutionControls
-          isRunning={isRunning}
-          isPaused={isPaused}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onResume={handleResume}
-          onStep={handleStep}
-          onReset={handleReset}
-          onBreakpoint={handleBreakpoint}
-          status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
-          errorMessage={lastError}
+        }
+      >
+        <RobotArmViewer
+          joints={interpreterState.currentJoints}
+          currentPosition={interpreterState.currentPosition}
         />
-
-        {/* IO Panel */}
-        <IOPanel
-          digitalInputs={interpreterState.io.DI}
-          digitalOutputs={interpreterState.io.DO}
-          registers={interpreterState.registers.PR}
-          onDigitalInputChange={(idx, val) => {
-            useAppStore.getState().setDigitalInput(idx, val);
-          }}
-        />
-
-        {/* Execution Console */}
-        <ExecutionConsole
-          logs={executionLogs}
-          currentLineNumber={interpreterState.programCounter}
-          autoScroll={true}
-        />
-      </View>
+      </SceneErrorBoundary>
     </View>
   );
-};
+}
 
-/**
- * Portrait layout: Stacked components
- */
-const PortraitLayout: React.FC = () => {
+function Masthead() {
+  return (
+    <View style={styles.masthead}>
+      <Text style={type.wordmark}>LR Mate 200iD</Text>
+      <Text style={styles.mastheadSub}>Teach</Text>
+    </View>
+  );
+}
+
+function PendantScreen() {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const {
     program,
     setProgram,
@@ -145,7 +129,17 @@ const PortraitLayout: React.FC = () => {
     interpreterState,
     lastError,
     addBreakpoint,
+    loadLesson,
+    definePosition,
+    teachCurrentPosition,
   } = useAppStore();
+
+  const highlightActive = isRunning || isPaused || Boolean(lastError);
+  const currentLine = editorHighlightIndex(
+    interpreterState.programCounter,
+    highlightActive,
+    Math.max(program.split('\n').length, 1)
+  );
 
   const handlePlay = useCallback(() => {
     runProgram();
@@ -168,32 +162,32 @@ const PortraitLayout: React.FC = () => {
   }, [resetExecution]);
 
   const handleBreakpoint = useCallback(() => {
-    const currentLine = interpreterState.programCounter;
-    if (currentLine >= 0) {
-      addBreakpoint(currentLine);
+    const line = interpreterState.programCounter;
+    if (line >= 0) {
+      addBreakpoint(line);
     }
   }, [interpreterState.programCounter, addBreakpoint]);
 
-  return (
-    <View style={styles.portraitContainer}>
-      {/* Editor */}
-      <View style={styles.portraitEditor}>
+  const viewport = (
+    <View style={isLandscape ? styles.hero : styles.portraitHero}>
+      <Text style={[type.label, styles.heroLabel]}>Arm</Text>
+      <SceneViewport interpreterState={interpreterState} />
+    </View>
+  );
+
+  const rail = (
+    <View style={isLandscape ? styles.rail : styles.portraitRail}>
+      <Masthead />
+      <LessonPicker onLoadLesson={loadLesson} />
+      <View style={isLandscape ? styles.editorSection : styles.portraitEditor}>
+        <Text style={[type.label, styles.sectionLabel]}>Program</Text>
         <CodeEditor
           value={program}
           onChange={setProgram}
           readOnly={isRunning && !isPaused}
+          currentLine={currentLine}
         />
       </View>
-
-      {/* 3D Viewport */}
-      <View style={styles.portraitViewport}>
-        <Viewport3D
-          currentPosition={interpreterState.currentPosition}
-          isLoading={false}
-        />
-      </View>
-
-      {/* Controls */}
       <ExecutionControls
         isRunning={isRunning}
         isPaused={isPaused}
@@ -206,9 +200,7 @@ const PortraitLayout: React.FC = () => {
         status={isPaused ? 'Paused' : isRunning ? 'Running' : 'Ready'}
         errorMessage={lastError}
       />
-
-      {/* IO Panel */}
-      <View style={styles.portraitIO}>
+      <View style={isLandscape ? styles.dataSection : styles.portraitIO}>
         <IOPanel
           digitalInputs={interpreterState.io.DI}
           digitalOutputs={interpreterState.io.DO}
@@ -216,36 +208,49 @@ const PortraitLayout: React.FC = () => {
           onDigitalInputChange={(idx, val) => {
             useAppStore.getState().setDigitalInput(idx, val);
           }}
+          positions={interpreterState.positions}
+          currentPosition={interpreterState.currentPosition}
+          onDefinePosition={definePosition}
+          onTeachCurrent={teachCurrentPosition}
         />
       </View>
-
-      {/* Console */}
-      <View style={styles.portraitConsole}>
+      <View style={isLandscape ? styles.logSection : styles.portraitConsole}>
         <ExecutionConsole
           logs={executionLogs}
-          currentLineNumber={interpreterState.programCounter}
+          currentLineNumber={currentLine ?? undefined}
           autoScroll={true}
         />
       </View>
     </View>
   );
-};
 
-/**
- * Main App Component
- */
+  if (isLandscape) {
+    return (
+      <View style={styles.landscape}>
+        {viewport}
+        {rail}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.portrait}>
+      {viewport}
+      {rail}
+    </View>
+  );
+}
+
 export default function App() {
   useRestorePersistedState();
   useAutoSaveState(1000);
-  const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {Platform.OS === 'android' && (
-        <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
+        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       )}
-      {isLandscape ? <LandscapeLayout /> : <PortraitLayout />}
+      <PendantScreen />
     </SafeAreaView>
   );
 }
@@ -253,45 +258,86 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
   },
-
-  // Landscape layout
-  landscapeContainer: {
+  landscape: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.bg,
   },
-  leftPanel: {
+  portrait: {
     flex: 1,
     flexDirection: 'column',
+    backgroundColor: theme.bg,
   },
-  rightPanel: {
+  hero: {
+    flex: 1.65,
+    backgroundColor: theme.bg,
+    minWidth: 280,
+  },
+      portraitHero: {
+        flex: 1.15,
+        minHeight: 220,
+        backgroundColor: theme.bg,
+      },
+      scene: {
+        flex: 1,
+        minHeight: 220,
+      },
+      heroLabel: {
+    position: 'absolute',
+    top: 16,
+    left: 20,
+    zIndex: 2,
+  },
+  rail: {
     flex: 1,
-    flexDirection: 'column',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: theme.rule,
+    backgroundColor: theme.panel,
+    minWidth: 320,
+  },
+  portraitRail: {
+    flex: 1.35,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.rule,
+    backgroundColor: theme.panel,
+  },
+  masthead: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    gap: 4,
+  },
+  mastheadSub: {
+    color: theme.muted,
+    fontSize: 11,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+  },
+  sectionLabel: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   editorSection: {
-    flex: 1.2,
+    flex: 1.15,
   },
-  viewportSection: {
-    flex: 0.8,
+  dataSection: {
+    flex: 0.85,
   },
-
-  // Portrait layout
-  portraitContainer: {
-    flex: 1,
-    flexDirection: 'column',
+  logSection: {
+    flex: 0.55,
+    minHeight: 88,
   },
   portraitEditor: {
-    flex: 1.5,
-  },
-  portraitViewport: {
-    flex: 0.8,
+    flex: 1.1,
   },
   portraitIO: {
-    flex: 0.8,
+    flex: 0.75,
   },
   portraitConsole: {
-    flex: 1,
+    flex: 0.55,
+    minHeight: 72,
   },
 });

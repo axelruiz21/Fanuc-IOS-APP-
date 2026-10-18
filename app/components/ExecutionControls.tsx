@@ -1,16 +1,14 @@
 /**
- * ExecutionControls Component
- * PLAY, PAUSE, STEP, RESET buttons with status display
- * Phase 2: UI Components
+ * Transport: Play / Pause / Step / Reset as editorial text.
  */
 
 import React, { useCallback } from 'react';
+import { theme, type } from '../theme';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Text,
-  ActivityIndicator,
   Platform,
 } from 'react-native';
 
@@ -26,6 +24,25 @@ export interface ExecutionControlsProps {
   status?: string;
   errorMessage?: string | null;
 }
+
+const Ghost: React.FC<{
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  accessibilityLabel: string;
+  active?: boolean;
+}> = ({ label, onPress, disabled, accessibilityLabel, active }) => (
+  <TouchableOpacity
+    style={[styles.button, disabled && styles.buttonDisabled]}
+    onPress={onPress}
+    disabled={disabled}
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+    accessibilityState={{ disabled: Boolean(disabled) }}
+  >
+    <Text style={[styles.buttonText, active && styles.buttonTextActive]}>{label}</Text>
+  </TouchableOpacity>
+);
 
 export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
   isRunning,
@@ -47,89 +64,45 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
     }
   }, [isPaused, isRunning, onPlay, onResume]);
 
+  const statusLabel = isRunning && !isPaused ? 'Running' : isPaused ? 'Paused' : status;
+
   return (
     <View style={styles.container}>
-      <View style={styles.statusBar}>
-        <View style={styles.statusIndicator}>
-          {isRunning && !isPaused && (
-            <>
-              <ActivityIndicator size="small" color="#4CAF50" />
-              <Text style={styles.statusText}>Running...</Text>
-            </>
-          )}
-          {isPaused && (
-            <>
-              <View style={[styles.statusDot, styles.statusPaused]} />
-              <Text style={styles.statusText}>Paused</Text>
-            </>
-          )}
-          {!isRunning && !isPaused && (
-            <>
-              <View style={[styles.statusDot, styles.statusReady]} />
-              <Text style={styles.statusText}>{status}</Text>
-            </>
-          )}
-        </View>
-        {!!errorMessage && (
-          <Text style={styles.errorText} numberOfLines={3}>
-            {errorMessage}
-          </Text>
-        )}
+      <View style={styles.statusRow}>
+        <Text style={type.label}>{statusLabel}</Text>
       </View>
-
+      {!!errorMessage && (
+        <Text style={styles.errorText} numberOfLines={3}>
+          {errorMessage}
+        </Text>
+      )}
       <View style={styles.controlsRow}>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.playButton,
-            (isRunning && !isPaused) && styles.buttonDisabled,
-          ]}
+        <Ghost
+          label={isPaused ? 'Resume' : 'Play'}
           onPress={handlePlayPress}
           disabled={isRunning && !isPaused}
-        >
-          <Text style={styles.buttonText}>
-            {isPaused ? '▶ Resume' : '▶ Play'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.pauseButton,
-            (!isRunning || isPaused) && styles.buttonDisabled,
-          ]}
+          accessibilityLabel={isPaused ? 'Resume program' : 'Play program'}
+          active={!isRunning || isPaused}
+        />
+        <Ghost
+          label="Pause"
           onPress={onPause}
           disabled={!isRunning || isPaused}
-        >
-          <Text style={styles.buttonText}>⏸ Pause</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.button,
-            styles.stepButton,
-            isRunning && !isPaused && styles.buttonDisabled,
-          ]}
+          accessibilityLabel="Pause program"
+        />
+        <Ghost
+          label="Step"
           onPress={onStep}
           disabled={isRunning && !isPaused}
-        >
-          <Text style={styles.buttonText}>⏭ Step</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.resetButton]}
-          onPress={onReset}
-        >
-          <Text style={styles.buttonText}>⟲ Reset</Text>
-        </TouchableOpacity>
-
+          accessibilityLabel="Step one line"
+        />
+        <Ghost label="Reset" onPress={onReset} accessibilityLabel="Reset execution" />
         {onBreakpoint && (
-          <TouchableOpacity
-            style={[styles.button, styles.breakpointButton]}
+          <Ghost
+            label="Break"
             onPress={onBreakpoint}
-          >
-            <Text style={styles.buttonText}>🔴 Breakpoint</Text>
-          </TouchableOpacity>
+            accessibilityLabel="Add breakpoint at current line"
+          />
         )}
       </View>
     </View>
@@ -138,77 +111,46 @@ export const ExecutionControls: React.FC<ExecutionControlsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f5f5f5',
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    backgroundColor: theme.panel,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    gap: 8,
   },
-  statusBar: {
-    marginBottom: 12,
-  },
-  statusIndicator: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  statusReady: {
-    backgroundColor: '#2196F3',
-  },
-  statusPaused: {
-    backgroundColor: '#FF9800',
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
-  },
   errorText: {
-    fontSize: 12,
-    color: '#d32f2f',
-    marginTop: 4,
+    fontSize: 11,
+    color: theme.danger,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 16,
   },
   controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 4,
   },
   button: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    minHeight: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 44,
-  },
-  playButton: {
-    backgroundColor: '#4CAF50',
-  },
-  pauseButton: {
-    backgroundColor: '#FF9800',
-  },
-  stepButton: {
-    backgroundColor: '#2196F3',
-  },
-  resetButton: {
-    backgroundColor: '#9C27B0',
-  },
-  breakpointButton: {
-    backgroundColor: '#d32f2f',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.28,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    color: theme.text,
+    fontSize: 11,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    fontWeight: '500',
+  },
+  buttonTextActive: {
+    color: theme.rule,
   },
 });

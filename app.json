@@ -10,29 +10,24 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a1a"
+      "backgroundColor": "#080808"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTabletMode": true,
-      "supportsPortrait": false,
-      "supportsLandscape": true,
-      "orientationLock": "landscape"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.axelruiz.fanucpendant",
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a1a"
+        "backgroundColor": "#080808"
       },
+      "package": "com.axelruiz.fanucpendant",
       "screenOrientation": "landscape"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "fanuc-ios-mvp"
-      }
     }
   }
 }

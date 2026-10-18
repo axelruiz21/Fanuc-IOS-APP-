@@ -4,6 +4,8 @@
  * Production-ready TypeScript implementation
  */
 
+import { HOME_JOINTS, inverse, type Joints } from '../kinematics';
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -36,6 +38,14 @@ export interface Registers {
 }
 
 /**
+ * CALL return snapshot (public). Internal frames also keep caller lines/loops.
+ */
+export interface CallFrame {
+  programName: string;
+  returnPC: number;
+}
+
+/**
  * Complete interpreter state
  */
 export interface InterpreterState {
@@ -43,8 +53,9 @@ export interface InterpreterState {
   registers: Registers;                      // PR[1..100]
   io: IOState;                               // DI/DO
   currentPosition: Position | null;          // Last moved-to position
+  currentJoints: Joints;                     // J1..J6 radians, last IK solution
   programCounter: number;                    // Current line
-  callStack: number[];                       // For nested calls
+  callStack: CallFrame[];
   isRunning: boolean;
   isPaused: boolean;
   breakPoints: Set<number>;
@@ -84,6 +95,11 @@ interface LoopFrame {
   registerIndex: number;
 }
 
+interface InternalCallFrame extends CallFrame {
+  lines: string[];
+  loopStack: LoopFrame[];
+}
+
 interface ExecutionContext {
   state: InterpreterState;
   lines: string[];
@@ -92,9 +108,12 @@ interface ExecutionContext {
   pauseUntil?: number;
   didJump: boolean;
   loopStack: LoopFrame[];
+  callFrames: InternalCallFrame[];
   /** Resume must execute the paused line; skip the breakpoint check once. */
   skipBreakpointOnce?: boolean;
 }
+
+const MAX_CALL_DEPTH = 8;
 
 // ============================================================================
 // FANUC INTERPRETER CLASS
@@ -103,6 +122,7 @@ interface ExecutionContext {
 export class FANUCInterpreter {
   private state: InterpreterState;
   private context: ExecutionContext | null = null;
+  private programs = new Map<string, string>();
 
   constructor() {
     this.state = this.initializeState();
@@ -117,6 +137,7 @@ export class FANUCInterpreter {
       registers: { PR: {} },
       io: { DI: {}, DO: {} },
       currentPosition: null,
+      currentJoints: [...HOME_JOINTS] as Joints,
       programCounter: 0,
       callStack: [],
       isRunning: false,
@@ -141,6 +162,17 @@ export class FANUCInterpreter {
     }
 
     return state;
+  }
+
+  /**
+   * Register a named subprogram for CALL. Names are case-insensitive.
+   */
+  public registerProgram(name: string, source: string): void {
+    const key = name.trim().toUpperCase();
+    if (!key) {
+      throw new Error('Program name required');
+    }
+    this.programs.set(key, source);
   }
 
   /**
@@ -218,6 +250,13 @@ export class FANUCInterpreter {
   }
 
   /**
+   * Clone the in-flight execution log (empty if no program is running).
+   */
+  public getExecutionLog(): string[] {
+    return this.context?.log ? [...this.context.log] : [];
+  }
+
+  /**
    * Get current state
    */
   public getState(): InterpreterState {
@@ -228,8 +267,9 @@ export class FANUCInterpreter {
       registers: { PR: { ...this.state.registers.PR } },
       io: { DI: { ...this.state.io.DI }, DO: { ...this.state.io.DO } },
       currentPosition: this.state.currentPosition ? { ...this.state.currentPosition } : null,
+      currentJoints: [...this.state.currentJoints] as Joints,
       programCounter: this.state.programCounter,
-      callStack: [...this.state.callStack],
+      callStack: this.state.callStack.map((frame) => ({ ...frame })),
       isRunning: this.state.isRunning,
       isPaused: this.state.isPaused,
       breakPoints: new Set(this.state.breakPoints),
@@ -251,6 +291,7 @@ export class FANUCInterpreter {
     const startTime = Date.now();
 
     try {
+      this.state.callStack = [];
       // Preprocess: clean and tokenize
       const lines = this.preprocessProgram(program);
       if (lines.length === 0) {
@@ -270,7 +311,9 @@ export class FANUCInterpreter {
         stopExecution: false,
         didJump: false,
         loopStack: [],
+        callFrames: [],
       };
+      this.state.callStack = [];
       this.state.isRunning = true;
       this.state.isPaused = false;
       this.state.programCounter = 0;
@@ -401,11 +444,15 @@ export class FANUCInterpreter {
 
     this.state.isRunning = true;
 
-    while (
-      this.state.programCounter < this.context.lines.length &&
-      !this.context.stopExecution &&
-      !this.state.isPaused
-    ) {
+    while (!this.context.stopExecution && !this.state.isPaused) {
+      if (this.state.programCounter >= this.context.lines.length) {
+        if (this.context.callFrames.length > 0) {
+          this.returnFromCall(this.state.programCounter);
+          continue;
+        }
+        break;
+      }
+
       const lineNumber = this.state.programCounter;
       const line = this.context.lines[lineNumber] ?? '';
       const trimmed = line.trim();
@@ -498,7 +545,7 @@ export class FANUCInterpreter {
         break;
       case 'END':
         log.push(`[${lineNumber}] ${command}`);
-        this.context.stopExecution = true;
+        this.returnFromCall(lineNumber);
         break;
       case 'ENDIF':
         log.push(`[${lineNumber}] ENDIF`);
@@ -513,6 +560,10 @@ export class FANUCInterpreter {
           this.context.didJump = true;
         } else {
           this.context.loopStack.pop();
+          const parent = this.context.loopStack[this.context.loopStack.length - 1];
+          if (parent) {
+            this.state.registers.PR[parent.registerIndex] = parent.current;
+          }
         }
         log.push(`[${lineNumber}] ENDFOR`);
         break;
@@ -670,6 +721,28 @@ export class FANUCInterpreter {
   }
 
   /**
+   * Solve IK and jump to the target. Throws the IK reason; callers prefix
+   * the command name (`MOVE: unreachable`, `J: joint_limit`, ...).
+   */
+  private applyIkMove(position: Position, lineNumber: number, logPrefix: string): void {
+    if (!this.context) throw new Error('No execution context');
+
+    const ik = inverse(position, this.state.currentJoints);
+    if (!ik.ok) {
+      throw new Error(ik.reason);
+    }
+
+    this.state.currentJoints = [...ik.joints] as Joints;
+    this.state.currentPosition = { ...position };
+    const jointsDeg = ik.joints
+      .map((q) => ((q * 180) / Math.PI).toFixed(1))
+      .join(', ');
+    this.context.log.push(
+      `[${lineNumber}] ${logPrefix} -> X:${position.x} Y:${position.y} Z:${position.z} J1..J6: ${jointsDeg}`
+    );
+  }
+
+  /**
    * MOVE P[n] command
    */
   private executeMOVE(tokens: Token[], lineNumber: number): void {
@@ -678,9 +751,7 @@ export class FANUCInterpreter {
     try {
       const { index } = this.parsePositionRef(tokens, 1);
       const position = this.state.positions[index];
-
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] MOVE P[${index}] -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `MOVE P[${index}]`);
     } catch (err) {
       throw new Error(`MOVE: ${(err as Error).message}`);
     }
@@ -696,10 +767,8 @@ export class FANUCInterpreter {
       const { index, nextIdx } = this.parsePositionRef(tokens, 1);
       const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 100;
-
       const position = this.state.positions[index];
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] J P[${index}] ${speed}% -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `J P[${index}] ${speed}%`);
     } catch (err) {
       throw new Error(`J: ${(err as Error).message}`);
     }
@@ -715,10 +784,8 @@ export class FANUCInterpreter {
       const { index, nextIdx } = this.parsePositionRef(tokens, 1);
       const speedToken = tokens[nextIdx];
       const speed = speedToken?.type === 'NUMBER' ? parseInt(speedToken.value, 10) : 500;
-
       const position = this.state.positions[index];
-      this.state.currentPosition = { ...position };
-      this.context.log.push(`[${lineNumber}] L P[${index}] ${speed}mm/s -> X:${position.x} Y:${position.y} Z:${position.z}`);
+      this.applyIkMove(position, lineNumber, `L P[${index}] ${speed}mm/s`);
     } catch (err) {
       throw new Error(`L: ${(err as Error).message}`);
     }
@@ -796,16 +863,32 @@ export class FANUCInterpreter {
     throw new Error('WAIT expects seconds or DIN(DI[n])');
   }
 
+  private lineKeyword(line: string): string {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(';')) return '';
+    const match = trimmed.match(/^([A-Za-z_]+)/);
+    return match ? match[1].toUpperCase() : '';
+  }
+
   private findMatchingElseOrEndif(from: number): { elseLine: number | null; endifLine: number } {
     if (!this.context) throw new Error('No execution context');
+    let depth = 0;
     let elseLine: number | null = null;
     for (let i = from; i < this.context.lines.length; i++) {
-      const cmd = this.context.lines[i].trim().toUpperCase();
-      if (cmd === 'ELSE' || cmd.startsWith('ELSE ')) {
-        elseLine = i;
+      const keyword = this.lineKeyword(this.context.lines[i]);
+      if (keyword === 'IF') {
+        depth += 1;
+        continue;
       }
-      if (cmd === 'ENDIF' || cmd.startsWith('ENDIF ')) {
-        return { elseLine, endifLine: i };
+      if (keyword === 'ENDIF') {
+        if (depth === 0) {
+          return { elseLine, endifLine: i };
+        }
+        depth -= 1;
+        continue;
+      }
+      if (keyword === 'ELSE' && depth === 0 && elseLine === null) {
+        elseLine = i;
       }
     }
     throw new Error('Missing ENDIF');
@@ -831,17 +914,48 @@ export class FANUCInterpreter {
     }
   }
 
+  private parseForHeader(fullLine: string): {
+    variable: string;
+    start: number;
+    end: number;
+    registerIndex: number;
+  } {
+    const prMatch = fullLine.match(/FOR\s+PR\[(\d+)\]\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
+    if (prMatch) {
+      const registerIndex = parseInt(prMatch[1], 10);
+      if (registerIndex < 1 || registerIndex > 100) {
+        throw new Error(`PR index must be 1-100, got ${registerIndex}`);
+      }
+      return {
+        variable: `PR[${registerIndex}]`,
+        start: parseInt(prMatch[2], 10),
+        end: parseInt(prMatch[3], 10),
+        registerIndex,
+      };
+    }
+
+    const named = fullLine.match(/FOR\s+(\w+)\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
+    if (!named) throw new Error('Invalid FOR syntax');
+    const variable = named[1].toUpperCase();
+    const letterRegisters: Record<string, number> = { J: 1, I: 2, K: 3 };
+    const registerIndex = letterRegisters[variable];
+    if (registerIndex == null) {
+      throw new Error(`FOR variable must be J, I, K, or PR[n], got ${variable}`);
+    }
+    return {
+      variable,
+      start: parseInt(named[2], 10),
+      end: parseInt(named[3], 10),
+      registerIndex,
+    };
+  }
+
   /**
    * FOR J=start TO end ... ENDFOR
    */
   private executeFOR(_tokens: Token[], lineNumber: number, fullLine: string): void {
     if (!this.context) throw new Error('No execution context');
-    const forMatch = fullLine.match(/FOR\s+(\w+)\s*=\s*(-?\d+)\s+TO\s*(-?\d+)/i);
-    if (!forMatch) throw new Error('Invalid FOR syntax');
-    const variable = forMatch[1].toUpperCase();
-    const start = parseInt(forMatch[2], 10);
-    const end = parseInt(forMatch[3], 10);
-    const registerIndex = variable === 'J' || !/\d/.test(variable) ? 1 : parseInt(variable.replace(/\D/g, ''), 10);
+    const { variable, start, end, registerIndex } = this.parseForHeader(fullLine);
     this.state.registers.PR[registerIndex] = start;
     this.context.loopStack.push({
       headerLine: lineNumber,
@@ -857,10 +971,57 @@ export class FANUCInterpreter {
   /**
    * CALL program_name
    */
-  private executeCALL(_tokens: Token[], _lineNumber: number): void {
+  private executeCALL(tokens: Token[], lineNumber: number): void {
     if (!this.context) throw new Error('No execution context');
 
-    throw new Error('CALL is not implemented in this MVP');
+    const nameToken = tokens[1];
+    if (!nameToken) {
+      throw new Error('CALL: expected program name');
+    }
+
+    const name = nameToken.value.toUpperCase();
+    const source = this.programs.get(name);
+    if (!source) {
+      throw new Error(`CALL: unknown program ${name}`);
+    }
+    if (this.context.callFrames.length >= MAX_CALL_DEPTH) {
+      throw new Error('CALL: stack overflow');
+    }
+
+    this.context.callFrames.push({
+      programName: name,
+      returnPC: lineNumber + 1,
+      lines: this.context.lines,
+      loopStack: this.context.loopStack.map((frame) => ({ ...frame })),
+    });
+    this.syncCallStack();
+    this.context.lines = this.preprocessProgram(source);
+    this.context.loopStack = [];
+    this.state.programCounter = 0;
+    this.context.didJump = true;
+    this.context.log.push(`[${lineNumber}] CALL ${name}`);
+  }
+
+  private syncCallStack(): void {
+    this.state.callStack = (this.context?.callFrames ?? []).map((frame) => ({
+      programName: frame.programName,
+      returnPC: frame.returnPC,
+    }));
+  }
+
+  private returnFromCall(lineNumber: number): void {
+    if (!this.context) throw new Error('No execution context');
+    const frame = this.context.callFrames.pop();
+    this.syncCallStack();
+    if (!frame) {
+      this.context.stopExecution = true;
+      return;
+    }
+    this.context.lines = frame.lines;
+    this.context.loopStack = frame.loopStack;
+    this.state.programCounter = frame.returnPC;
+    this.context.didJump = true;
+    this.context.log.push(`[${lineNumber}] RETURN ${frame.programName}`);
   }
 
   /**
