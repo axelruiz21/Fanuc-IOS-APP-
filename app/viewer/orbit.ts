@@ -14,7 +14,14 @@ export const ORBIT_MAX_RADIUS = 8;
 export const ORBIT_MIN_PITCH = -Math.PI / 2 + 0.08;
 export const ORBIT_MAX_PITCH = Math.PI / 2 - 0.08;
 
-export const DEFAULT_CAMERA_POSITION: Vec3 = [1.5, 1.1, 1.5];
+/**
+ * Hero framing: look at the arm's working volume (not the floor), from a
+ * front-right three-quarter a little above eye line, with a longer lens so the
+ * CAD does not keystone. Table sits camera-right, cabinet and fence behind.
+ */
+export const DEFAULT_ORBIT_TARGET: Vec3 = [0.05, 0.42, -0.05];
+export const DEFAULT_CAMERA_POSITION: Vec3 = [1.35, 1.0, 2.0];
+export const DEFAULT_FOV = 30;
 
 function hypot3(v: Vec3): number {
   return Math.hypot(v[0], v[1], v[2]);
@@ -93,4 +100,7 @@ export function panOrbit(state: OrbitState, rightDelta: number, upDelta: number)
   };
 }
 
-export const DEFAULT_ORBIT: OrbitState = orbitFromCameraPosition(DEFAULT_CAMERA_POSITION);
+export const DEFAULT_ORBIT: OrbitState = orbitFromCameraPosition(
+  DEFAULT_CAMERA_POSITION,
+  DEFAULT_ORBIT_TARGET
+);

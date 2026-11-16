@@ -100,3 +100,20 @@ describe('procedural work-cell maps', () => {
     expect(seen.size).toBeGreaterThan(4);
   });
 });
+
+describe('wire mesh alpha', () => {
+  it('is a cutout: fully opaque wires on a fully transparent field', () => {
+    const { wireMeshAlpha } = require('../app/viewer/proceduralMaps') as typeof import('../app/viewer/proceduralMaps');
+    const size = 16;
+    const data = wireMeshAlpha(size, 2);
+    expect(data.length).toBe(size * size * 4);
+    const alphas = new Set<number>();
+    for (let i = 3; i < data.length; i += 4) {
+      alphas.add(data[i]);
+    }
+    expect(alphas).toEqual(new Set([0, 255]));
+    // top-left pixel is wire, centre pixel is open
+    expect(data[3]).toBe(255);
+    expect(data[((size / 2) * size + size / 2) * 4 + 3]).toBe(0);
+  });
+});

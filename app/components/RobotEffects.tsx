@@ -69,18 +69,24 @@ function GuardedEffectComposer({
     };
   }, [onError]);
 
+  /*
+   * Half-float scene buffer so the fixtures' emissive and the clearcoat
+   * highlights survive into Bloom; ACES runs after it, SMAA last. Three skips
+   * its own tone mapping when rendering into the composer target, so the
+   * ToneMapping pass is the only one.
+   */
   return (
-      <EffectComposer
-        ref={composerRef}
-        multisampling={0}
-        frameBufferType={THREE.UnsignedByteType}
-      >
-        <N8AO aoRadius={0.12} intensity={1.15} />
-        <Bloom luminanceThreshold={1.15} intensity={0.22} mipmapBlur />
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <Vignette offset={0.35} darkness={0.42} />
-        <SMAA />
-      </EffectComposer>
+    <EffectComposer
+      ref={composerRef}
+      multisampling={0}
+      frameBufferType={THREE.HalfFloatType}
+    >
+      <N8AO aoRadius={0.22} distanceFalloff={0.55} intensity={2.2} quality="medium" halfRes />
+      <Bloom luminanceThreshold={1.15} luminanceSmoothing={0.2} intensity={0.35} radius={0.55} mipmapBlur />
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      <Vignette offset={0.28} darkness={0.55} eskil={false} />
+      <SMAA />
+    </EffectComposer>
   );
 }
 

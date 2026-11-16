@@ -36,12 +36,13 @@ describe('vendored machine-shop HDR', () => {
     expect(web).toContain('ACES_FILMIC');
   });
 
-  it('uses an 8-bit composer target and leaves the SSGI normal pass off', () => {
+  it('uses a half-float composer target so Bloom sees HDR, and leaves the SSGI normal pass off', () => {
     const web = fs.readFileSync(
       path.join(ROOT, 'app/components/RobotEffects.tsx'),
       'utf8'
     );
-    expect(web).toContain('UnsignedByteType');
+    expect(web).toContain('HalfFloatType');
+    expect(web).not.toContain('UnsignedByteType');
     expect(web).toContain('frameBufferType');
     expect(web).not.toContain('enableNormalPass');
   });
@@ -83,12 +84,13 @@ describe('vendored machine-shop HDR', () => {
     expect(loader).toContain("require('../../assets/env/machine_shop_01_2k.hdr')");
   });
 
-  it('keeps a standard floor on web so a reflector target cannot replace the hero', () => {
+  it('uses the reflector floor on web only and keeps a standard floor for native', () => {
     const cell = fs.readFileSync(
       path.join(ROOT, 'app/components/WorkCell.tsx'),
       'utf8'
     );
-    expect(cell).not.toContain('MeshReflectorMaterial');
+    expect(cell).toContain('MeshReflectorMaterial');
+    expect(cell).toMatch(/IS_WEB \? \(\s*<MeshReflectorMaterial/);
     expect(cell).toContain('meshStandardMaterial');
   });
 

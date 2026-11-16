@@ -58,3 +58,28 @@ describe('spherical orbit', () => {
     expect(Math.hypot(dx, dy, dz)).toBeCloseTo(panned.radius, 6);
   });
 });
+
+describe('default hero framing', () => {
+  const orbit = require('../app/viewer/orbit') as typeof import('../app/viewer/orbit');
+
+  it('aims at the arm working volume, above the floor, from above eye line', () => {
+    expect(orbit.DEFAULT_ORBIT.target).toEqual(orbit.DEFAULT_ORBIT_TARGET);
+    expect(orbit.DEFAULT_ORBIT_TARGET[1]).toBeGreaterThan(0.3);
+    expect(orbit.DEFAULT_ORBIT_TARGET[1]).toBeLessThan(0.7);
+    expect(orbit.DEFAULT_ORBIT.pitch).toBeGreaterThan(0.1);
+    expect(orbit.DEFAULT_ORBIT.pitch).toBeLessThan(0.5);
+  });
+
+  it('round-trips the default camera position through the orbit state', () => {
+    const pos = orbit.cameraPosition(orbit.DEFAULT_ORBIT);
+    expect(pos[0]).toBeCloseTo(orbit.DEFAULT_CAMERA_POSITION[0], 6);
+    expect(pos[1]).toBeCloseTo(orbit.DEFAULT_CAMERA_POSITION[1], 6);
+    expect(pos[2]).toBeCloseTo(orbit.DEFAULT_CAMERA_POSITION[2], 6);
+    expect(orbit.DEFAULT_ORBIT.radius).toBeGreaterThan(orbit.ORBIT_MIN_RADIUS);
+    expect(orbit.DEFAULT_ORBIT.radius).toBeLessThan(orbit.ORBIT_MAX_RADIUS);
+  });
+
+  it('uses a long lens so the CAD does not keystone', () => {
+    expect(orbit.DEFAULT_FOV).toBeLessThanOrEqual(32);
+  });
+});

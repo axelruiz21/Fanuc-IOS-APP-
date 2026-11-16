@@ -1,5 +1,6 @@
 /**
- * Factory IBL + optional web HDR. No CDN. Renderer does not solve IK.
+ * Factory IBL + optional web HDR, and the one light rig for the cell.
+ * No CDN. Renderer does not solve IK.
  */
 import React, {
   Component,
@@ -18,6 +19,7 @@ import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { createFactoryEnvironmentScene } from '../viewer/factoryEnvironment';
+import { FIXTURE_X, FIXTURE_Y, OVERHEAD_Z } from '../viewer/cellLayout';
 
 const SHADOW_MAP = Platform.OS === 'web' ? 2048 : 1024;
 const IS_WEB = Platform.OS === 'web';
@@ -82,8 +84,8 @@ export function StudioEnvironment(): null {
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = IS_WEB ? 0.98 : 1.04;
-    scene.background = new THREE.Color('#0A0908');
+    // Web tone-maps in the composer; this exposure is what native sees.
+    gl.toneMappingExposure = IS_WEB ? 0.92 : 1.0;
     const previous = scene.environment;
     let factoryMap: THREE.Texture | null = null;
     try {
@@ -160,6 +162,14 @@ export function StudioEnvironment(): null {
   return null;
 }
 
+/**
+ * One rig, three jobs. Key: warm, high, camera-left and in front, the only
+ * shadow caster (two casters wash each other out) — placed so the arm's shadow
+ * falls camera-right onto open floor instead of hiding behind the base. Rim:
+ * cool from behind-right so the yellow separates from the dark bay. Pool: a spot from the fixture over
+ * the pedestal so the floor has falloff instead of a flat tint. The IBL
+ * (HDR on web, baked bay on native) supplies ambient; hemisphere stays tiny.
+ */
 export function StudioLights(): React.ReactElement {
   const [areaLights, setAreaLights] = useState(false);
 
@@ -179,59 +189,48 @@ export function StudioLights(): React.ReactElement {
     <>
       {IS_WEB ? (
         <OptionalPass>
-          <SoftShadows samples={12} size={18} focus={0.42} />
+          <SoftShadows samples={16} size={5} focus={0.5} />
         </OptionalPass>
       ) : null}
-      <hemisphereLight args={['#8FA0B0', '#1A1612', IS_WEB ? 0.12 : 0.28]} />
+      <hemisphereLight args={['#6E7F94', '#17130F', IS_WEB ? 0.06 : 0.22]} />
       <directionalLight
         castShadow
-        position={[2.8, 5.6, 2.1]}
-        intensity={IS_WEB ? 1.2 : 1.55}
-        color="#FFF3E0"
+        position={[-1.5, 4.2, 2.4]}
+        intensity={IS_WEB ? 2.3 : 1.8}
+        color="#FFEBD2"
         shadow-mapSize={[SHADOW_MAP, SHADOW_MAP]}
-        shadow-bias={-0.00016}
-        shadow-normalBias={0.02}
+        shadow-bias={-0.00012}
+        shadow-normalBias={0.018}
         shadow-camera-near={0.5}
-        shadow-camera-far={18}
-        shadow-camera-left={-2.4}
-        shadow-camera-right={2.4}
-        shadow-camera-top={2.4}
-        shadow-camera-bottom={-2.4}
+        shadow-camera-far={14}
+        shadow-camera-left={-2.2}
+        shadow-camera-right={2.2}
+        shadow-camera-top={2.2}
+        shadow-camera-bottom={-2.2}
       />
-      <directionalLight
-        position={[-3.4, 1.8, -1.6]}
-        intensity={IS_WEB ? 0.18 : 0.32}
-        color="#A9B7C6"
+      <directionalLight position={[2.8, 2.6, -2.4]} intensity={IS_WEB ? 0.5 : 0.45} color="#B9C6D6" />
+      <spotLight
+        position={[FIXTURE_X[1], FIXTURE_Y - 0.04, OVERHEAD_Z[1]]}
+        intensity={IS_WEB ? 28 : 16}
+        color="#FFF1DA"
+        angle={0.6}
+        penumbra={0.75}
+        distance={9}
+        decay={2}
       />
-      {IS_WEB && areaLights ? (
-        <>
-          <rectAreaLight
-            position={[-0.85, 2.68, -0.9]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            width={1.2}
-            height={0.12}
-            intensity={2.4}
-            color="#FFF4DC"
-          />
-          <rectAreaLight
-            position={[0.95, 2.68, 0.35]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            width={1.2}
-            height={0.12}
-            intensity={2.0}
-            color="#FFF4DC"
-          />
-        </>
-      ) : IS_WEB ? null : (
-        <spotLight
-          position={[0.2, 4.0, 0.5]}
-          intensity={0.7}
-          color="#F4F1EC"
-          angle={0.62}
-          penumbra={0.8}
-          distance={14}
-        />
-      )}
+      {IS_WEB && areaLights
+        ? OVERHEAD_Z.map((z, i) => (
+            <rectAreaLight
+              key={`area-${z}`}
+              position={[FIXTURE_X[i] ?? 0, FIXTURE_Y - 0.04, z]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              width={1.2}
+              height={0.12}
+              intensity={2.6}
+              color="#FFF4DC"
+            />
+          ))
+        : null}
     </>
   );
 }
