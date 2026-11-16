@@ -5,10 +5,12 @@ import {
   concreteRoughness,
   paintNormal,
   paintRoughness,
+  wireMeshAlpha,
 } from './proceduralMaps';
 
 const FLOOR_SIZE = 512;
 const PAINT_SIZE = 256;
+const MESH_SIZE = 16;
 
 export type StudioMaps = {
   floorAlbedo: THREE.DataTexture;
@@ -16,6 +18,7 @@ export type StudioMaps = {
   paintNormal: THREE.DataTexture;
   paintRoughness: THREE.DataTexture;
   metalRoughness: THREE.DataTexture;
+  fenceMesh: THREE.DataTexture;
 };
 
 function dataTexture(data: Uint8Array, size: number, srgb: boolean): THREE.DataTexture {
@@ -41,12 +44,14 @@ export function getStudioMaps(): StudioMaps {
       paintNormal: dataTexture(paintNormal(PAINT_SIZE), PAINT_SIZE, false),
       paintRoughness: dataTexture(paintRoughness(PAINT_SIZE), PAINT_SIZE, false),
       metalRoughness: dataTexture(brushedMetalRoughness(PAINT_SIZE), PAINT_SIZE, false),
+      fenceMesh: dataTexture(wireMeshAlpha(MESH_SIZE, 3), MESH_SIZE, false),
     };
     cache.floorAlbedo.repeat.set(1, 1);
     cache.floorRoughness.repeat.set(1, 1);
     cache.paintNormal.repeat.set(4, 4);
     cache.paintRoughness.repeat.set(4, 4);
     cache.metalRoughness.repeat.set(6, 6);
+    // Fence repeat is set per panel in WorkCell from the bay size and wire pitch.
   }
   return cache;
 }

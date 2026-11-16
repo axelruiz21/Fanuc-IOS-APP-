@@ -6,6 +6,10 @@ Educational robot programming simulator for iOS, built with React Native and Typ
 
 **Run (web):** `npm install && npm run start:web`
 
+**Look (2026-11-15 pass):** hero camera on the arm's working volume (30° lens), one shadow-casting key + cool rim + overhead pool, PCSS + contact shadows, powder-coat yellow with wear maps, sealed-epoxy reflector floor (web), and a dressed cell — guard fence, controller cabinet with LEDs, dress cable, bollards, ceiling beams, table parts. Web post stack is half-float N8AO → Bloom → ACES → Vignette → SMAA; native keeps the same layout and materials with a lighter rig. Design note: `docs/superpowers/specs/2026-11-15-cell-graphics-pass-design.md`.
+
+**Screenshot the web build (no embedded pane):** `node scripts/web-shot.mjs http://localhost:8081 shot.png` (needs Google Chrome; `CHROME_BIN`, `SCALE`, `PRE_JS` env knobs). Embedded/background browser panes report `document.hidden`, which pauses rAF and ResizeObserver — an R3F canvas there never renders and looks like a shader bug.
+
 **Run (iOS / Expo Go):** `npm install && npx expo start --ios` (needs Xcode / a device). The arm uses the same `currentJoints` as web.
 
 **iOS Simulator caveat:** expo-gl's GLES support in the simulator is incomplete. Verified 2026-10-18 on an iPad Pro 11-inch (iOS 26.2) simulator in Expo Go: the app boots and the work cell renders, but `EXT_color_buffer_float` is unavailable (factory/HDR environment lighting cannot bake, so the scene is dim) and the CAD link materials render invisible while the EOAT triad shows. Treat the simulator as a UI smoke only; validate the native arm on a physical device. Web (`npm run start:web`) renders the full CAD arm, HDR lighting, and post stack.

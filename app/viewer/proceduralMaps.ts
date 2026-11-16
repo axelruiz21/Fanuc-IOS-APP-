@@ -203,3 +203,22 @@ export function brushedMetalRoughness(size: number): Uint8Array {
   }
   return data;
 }
+
+/**
+ * Cutout alpha for welded wire mesh: one opaque cross per tile on a transparent
+ * field. Repeat it at the wire pitch; mipmaps thin it naturally with distance.
+ */
+export function wireMeshAlpha(size: number, lineWidth = 2): Uint8Array {
+  const data = alloc(size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const onWire = x < lineWidth || y < lineWidth;
+      const i = pixelIndex(size, x, y);
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = onWire ? 255 : 0;
+    }
+  }
+  return data;
+}

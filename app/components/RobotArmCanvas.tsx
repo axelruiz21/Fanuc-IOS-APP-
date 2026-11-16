@@ -13,9 +13,15 @@ import React, {
   type ReactNode,
 } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
+import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { HOME_JOINTS, type CartesianPose, type Joints } from '../kinematics';
-import { DEFAULT_CAMERA_POSITION, DEFAULT_ORBIT, type OrbitState } from '../viewer/orbit';
+import {
+  DEFAULT_CAMERA_POSITION,
+  DEFAULT_FOV,
+  DEFAULT_ORBIT,
+  type OrbitState,
+} from '../viewer/orbit';
 import { cadLinkTransform, mat4ToThreeSetArgs } from '../viewer/cadFrames';
 import { theme } from '../theme';
 import { CadArm } from './CadArm';
@@ -130,6 +136,17 @@ const EoatAxes: React.FC<{ joints: Joints }> = ({ joints }) => {
   );
 };
 
+/** Dev-only handle so the R3F store can be inspected (and frames driven via `advance`) from devtools. */
+function DevStoreHandle(): null {
+  const state = useThree();
+  React.useEffect(() => {
+    if (__DEV__) {
+      (globalThis as unknown as { __r3f?: unknown }).__r3f = state;
+    }
+  }, [state]);
+  return null;
+}
+
 function RobotScene({
   joints,
   currentPosition,
@@ -137,9 +154,7 @@ function RobotScene({
 }: RobotArmProps & { orbitRef: MutableRefObject<OrbitState> }) {
   return (
     <>
-      <color attach="background" args={['#1A1612']} />
-      <hemisphereLight args={['#F4EFE6', '#3A332C', 0.7]} />
-      <directionalLight position={[2.4, 5.2, 2.2]} intensity={1.7} color="#FFF6E8" castShadow />
+      <color attach="background" args={[theme.bg]} />
       <StudioExtrasBoundary>
         <StudioEnvironment />
         <StudioLights />
@@ -171,11 +186,12 @@ export const RobotArmViewer: React.FC<RobotArmProps> = ({
       <OrbitCapture orbitRef={orbitRef}>
         <Canvas
           shadows
-          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: 38, near: 0.05, far: 28 }}
+          camera={{ position: [...DEFAULT_CAMERA_POSITION], fov: DEFAULT_FOV, near: 0.05, far: 28 }}
           style={styles.canvas}
-          dpr={Platform.OS === 'web' ? [1, 2] : [1, 1.5]}
-          gl={{ antialias: true, alpha: false }}
+          dpr={Platform.OS === 'web' ? [1, 1.75] : [1, 1.5]}
+          gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         >
+          <DevStoreHandle />
           <RobotScene joints={joints} currentPosition={currentPosition} orbitRef={orbitRef} />
         </Canvas>
       </OrbitCapture>
